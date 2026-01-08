@@ -1,104 +1,110 @@
-# ct-correction-cfs-ecmwf
+ct-correction-cfs-ecmwf
 
-Pipeline para **processamento de hindcast do ECMWF System 51** e **correção de viés (LS-Add)** de previsões subseasonais de precipitação, com saída mensal acumulada em **mm**.
+Pipeline for ECMWF System 51 hindcast processing and bias correction (LS-Add) of subseasonal precipitation forecasts, producing monthly accumulated precipitation (mm).
 
-O repositório contém dois scripts principais:
-1. Download e processamento do **hindcast**
-2. Pré-processamento e **correção de forecasts** usando climatologia observada
+This repository provides the core correction workflow. Detailed script usage and operational examples are documented in the individual README files shipped with each script.
 
----
+What this repository does
 
-## Visão geral do fluxo
+The pipeline is organized in two main stages:
 
-### 1. Hindcast (ECMWF System 51)
-- Download via CDS (`seasonal-monthly-single-levels`)
-- Conversão de `tprate (m/s)` → precipitação mensal acumulada (mm)
-- Leads 1–6
-- Cálculo da climatologia do hindcast (média em `member` e `init_time`)
-- Regridding opcional para uma grade de referência
-- Saída em NetCDF
+1. Hindcast processing (ECMWF System 51)
 
-### 2. Forecast
-- Leitura de forecasts brutos (NetCDF)
-- Remoção do último mês incompleto
-- Acumulação mensal (`resample(time="MS").sum()`)
-- Ajuste de convenção de longitude (0–360 ↔ -180–180)
-- Regridding para a grade de referência
-- Correção de viés **LS-Add**
-- Valores negativos são truncados para zero
+Downloads hindcast data from the Copernicus Climate Data Store (CDS)
 
----
+Variable: total precipitation rate (tprate, m/s)
 
-## Estrutura de saída (regra obrigatória)
+Converts precipitation to monthly accumulated totals (mm)
 
-Após `--out-*`, **os scripts só podem criar**:
+Supports leads 1–6
+
+Computes hindcast climatology (mean over members and initialization dates)
+
+Optional regridding to a reference grid
+
+Outputs NetCDF files for use in forecast correction
+
+2. Forecast bias correction
+
+Reads raw subseasonal forecast NetCDF files
+
+Removes incomplete final months
+
+Aggregates data to monthly totals
+
+Harmonizes longitude convention (0–360 ↔ −180–180)
+
+Optional regridding to the same reference grid as climatology
+
+Applies LS-Add bias correction
+
+Ensures physical consistency by truncating negative precipitation values to zero
+
+Bias correction method (LS-Add)
+
+The correction applied is Linear Scaling – Additive (LS-Add), performed independently for each lead and calendar month:
+
+corrected_forecast =
+    raw_forecast +
+    (observed_climatology(month_of_lead)
+     − hindcast_climatology(lead))
 
 
-Nenhuma pasta extra é criada.
+Where:
 
----
+raw_forecast is the monthly accumulated forecast precipitation
 
-## Requisitos
+observed_climatology is derived from an observational reference dataset
 
-Python 3.9+ recomendado.
+hindcast_climatology is computed from ECMWF System 51 hindcasts
 
-Dependências principais:
-- numpy
-- xarray
+This method preserves forecast anomalies while correcting systematic mean bias.
 
-Para hindcast:
-- cdsapi
-- cfgrib
-- ecCodes (instalado no sistema)
+Dependencies
+Required
 
-Regridding opcional:
-- xesmf
+Python 3.9+
 
-Exemplo:
-```bash
+numpy
+
+xarray
+
+Hindcast download and decoding
+
+cdsapi
+
+cfgrib
+
+ecCodes (must be installed at system level)
+
+Optional (regridding)
+
+xesmf
+
+Example installation:
+
 pip install numpy xarray cdsapi cfgrib xesmf
 
-hindcast_tp_download_process.py
-python3 hindcast_tp_download_process.py \
-  --month 12 \
-  --out-grib /path/OUT_GRIB \
-  --out-nc   /path/OUT_NC
 
-python3 hindcast_tp_download_process.py \
-  --doy-root /path/<YEAR>/ \
-  --out-grib /path/OUT_GRIB \
-  --out-nc   /path/OUT_NC
+Note: ecCodes must be installed via your system package manager or Conda.
 
-python3 hindcast_tp_download_process.py \
-  --month 12 \
-  --out-grib /path/OUT_GRIB \
-  --out-nc   /path/OUT_NC \
-  --regrid \
-  --ref-grid /path/grid.nc
+Output structure (strict rule)
 
-forecast_correction_pipeline.py
+Scripts only write output inside the directories explicitly passed via --out-* arguments.
+No additional folders are created automatically.
 
-corrected = forecast + (clim_obs(month_of_lead) - clim_hindcast(lead))
+This constraint is intentional to ensure safe integration in operational environments.
 
-python3 forecast_correction_pipeline.py \
-  --forecast-root /path/RAW_FORECASTS/<YEAR>/ \
-  --hindcast-root /path/HINDCAST_NC/total_precipitation/<YEAR>/ \
-  --clim-file     /path/OBS_CLIM_AND_GRID.nc \
-  --out-root      /path/OUT_CORRECTED \
-  --var-name total_precipitation
+Documentation scope
 
+This README describes what the pipeline does
 
----
+Detailed how-to, arguments, and operational examples are documented in the README files associated with each script
 
-### Como subir
-No GitHub:
-1. Clique em **Add a README**
-2. Cole tudo acima
-3. **Commit changes**
+If needed, this README can be:
 
-Se quiser, posso:
-- Ajustar o README para **padrão StormGeo**
-- Simplificar para uso operacional
-- Escrever uma versão curta + técnica
+Adapted to StormGeo operational standards
 
+Shortened for production environments
 
+Extended with a scientific/technical appendix describing assumptions and limitations
