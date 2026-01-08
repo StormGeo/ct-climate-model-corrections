@@ -52,27 +52,18 @@ hindcast_climatology: climatology computed from ECMWF System 51 hindcasts
 
 This approach preserves forecast anomalies while correcting systematic mean bias.
 
-Requirements
+## Requirements
 Recommended
 
 Python 3.9+
-
 Core dependencies
-
 numpy
-
 xarray
-
 Hindcast download and decoding
-
 cdsapi
-
 cfgrib
-
 ecCodes (system-level installation required)
-
 Optional (regridding)
-
 xesmf
 
 Example installation:
@@ -95,13 +86,3 @@ This README describes what the pipeline does
 
 Detailed arguments, execution steps, and examples are documented in the script-level README files
 
-### Por que agora vai ficar “bonito” no GitHub
-- Hierarquia clara (`##`, `###`)
-- Linhas curtas (GitHub renderiza melhor)
-- Blocos de código bem separados
-- Texto respirável (como no exemplo que você mostrou)
-
-Se quiser, no próximo passo eu posso:
-- Ajustar para **padrão StormGeo**
-- Deixar ainda mais **minimalista**
-- Comparar lado a lado com o README do *Climatempo* e alinhar o estilo visual
