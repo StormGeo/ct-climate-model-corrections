@@ -8,7 +8,13 @@ Regra solicitada (dinâmica):
 - Se o forecast tiver mais meses do que o hindcast, os meses extras NÃO aparecem no arquivo final.
 
 
-python3 CFS_TEMP_teste.py   --forecast /home/felipe/operacao_linux/2025/CFS_PREV/2m_air_temperature_min/335/   --hindcast-root /home/felipe/operacao_linux/reforecast/cfs_glo   --clim-root /home/felipe/operacao_linux/climatology   --out-hindcast /home/felipe/operacao_linux/<folder to save the data>   --out-corr /home/felipe/operacao_linux/<folder to save the data>   --debug
+python3 CFS_TEMP_teste.py \
+  --forecast /home/felipe/operacao_linux/2025/CFS_PREV/2m_air_temperature_min/335 \
+  --hindcast-root /home/felipe/operacao_linux/reforecast/cfs_glo \
+  --clim-root /home/felipe/operacao_linux/climatology \
+  --out-hindcast /home/felipe/operacao_linux/PASTA_HINDCAST \
+  --out-corr /home/felipe/operacao_linux/PASTA_CORR \
+  --debug
 
 
 1) Purpose

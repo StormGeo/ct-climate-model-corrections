@@ -21,8 +21,14 @@ Applies LS-Add bias correction lead-by-lead:
 corrected = forecast_monthly + (obs_clim(month_obs) - hindcast_lead)
 month_obs = month_hind + 1 (wrap 12→1)
 
-python3 CFS_chuva.py   --forecast /home/felipe/operacao_linux/2025/CFS_PREV/total_precipitation/335/   --hindcast-root /home/felipe/operacao_linux/reforecast/cfs_glo/total_precipitation   --clim-obs /home/felipe/operacao_linux/precip_mensal.nc   --ref-grid /home/felipe/operacao_linux/precip_mensal.nc   --out-hindcast /home/felipe/operacao_linux/<folder to save the data>   --out-corr /home/felipe/operacao_linux/<folder to save the data>   --de
-bug
+python3 CFS_PRECIPITATION.py \
+  --forecast /home/felipe/operacao_linux/2025/CFS_PREV/total_precipitation/335 \
+  --hindcast-root /home/felipe/operacao_linux/reforecast/cfs_glo/total_precipitation \
+  --clim-obs /home/felipe/operacao_linux/precip_mensal.nc \
+  --ref-grid /home/felipe/operacao_linux/precip_mensal.nc \
+  --out-hindcast /home/felipe/operacao_linux/PASTA_HINDCAST \
+  --out-corr /home/felipe/operacao_linux/PASTA_CORR \
+  --debug
 
 Writes corrected NetCDF output using the filename pattern:
 
