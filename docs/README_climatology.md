@@ -1,7 +1,8 @@
 README — Monthly Aggregation & NetCDF Standardization (Precipitation + 2m Temperature)
 
-python3 climatology.py   --in /home/felipe/operacao_linux/2025/CFS_PREV/2m_air_temperature_min/335/   --out /h
-ome/felipe/operacao_linux/<folder to save the data>
+python3 climatology.py \
+  --in /home/felipe/operacao_linux/2025/CFS_PREV/2m_air_temperature_min/335/ \
+  --out /home/felipe/operacao_linux/<folder_to_save_the_data>
 
 1) Purpose
 

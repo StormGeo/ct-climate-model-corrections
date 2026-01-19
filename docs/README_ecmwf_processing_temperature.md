@@ -1,11 +1,12 @@
 README.txt — ECMWF System 51 Hindcast Monthly Temperature (Download + Processing)
 
-python3 t.py  
-/--doy-root /home/felipe/operacao_linux/temperatura/2m_air_temperature_min/2025 
-/--out-grib /home/felipe/operacao_linux/ECMWF_HINDCAST_OUT 
-/--out-nc /home/felipe/operacao_linux/ECMWF_HINDCAST_OUT_PROCESSED 
-/--regrid 
-/--ref-grid /home/felipe/operacao_linux/climatology/2m_air_temperature_min/era5_glo_2m_air_temperature_min_20010101_Monthly.nc
+python3 ECMWF_processing_temperature.py \
+  --doy-root /home/felipe/operacao_linux/temperatura/2m_air_temperature_min/2025 \
+  --out-grib /home/felipe/operacao_linux/ECMWF_HINDCAST_OUT \
+  --out-nc /home/felipe/operacao_linux/ECMWF_HINDCAST_OUT_PROCESSED \
+  --regrid \
+  --ref-grid /home/felipe/operacao_linux/climatology/2m_air_temperature_min/era5_glo_2m_air_temperature_min_20010101_Monthly.nc
+
 
 1. Purpose
 This single script performs end-to-end handling of ECMWF System 51 seasonal hindcast monthly fields for 2 m air temperature:
