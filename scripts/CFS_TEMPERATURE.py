@@ -57,15 +57,10 @@ class PipelineConfig:
 
 TEMP_VAR_HINTS = {
     "2m_air_temperature_min": ["2m_air_temperature_min", "t2m_min", "temperature_min", "temperatura_min", "tmin"],
-    "2m_air_temperature_med": [
-        "2m_air_temperature_med",
-        "2m_air_temperature_mean",
-        "t2m_med",
-        "t2m_mean",
-        "temperature_mean",
-        "temperatura_media",
-        "tmean",
-        "tmed",
+    "2m_air_temperature": [
+        "2m_air_temperature",
+        "t2m",
+        "2m_air_temperature",
     ],
     "2m_air_temperature_max": ["2m_air_temperature_max", "t2m_max", "temperature_max", "temperatura_max", "tmax"],
 }
@@ -145,26 +140,42 @@ def is_monthly_time_axis(time_values: np.ndarray) -> bool:
 
 
 def detect_temp_var_from_path(path: Path) -> str:
-    s = path.as_posix().lower()
-    hits = []
-    for var, hints in TEMP_VAR_HINTS.items():
-        if any(h.lower() in s for h in hints):
-            hits.append(var)
-    if not hits:
-        raise ValueError(
-            f"Não consegui detectar variável de temperatura pelo caminho: {path}\n"
-            f"Esperado conter algo como: 2m_air_temperature_min / med|mean / max."
-        )
-    if len(hits) > 1:
-        raise ValueError(f"Detecção ambígua pelo caminho. Achei {hits} em: {path}")
-    return hits[0]
+    # Aceita SOMENTE nomes corretos como pasta no caminho
+    allowed = {
+        "2m_air_temperature",
+        "2m_air_temperature_min",
+        "2m_air_temperature_max",
+    }
+
+    parts = [p.lower() for p in path.parts if p]  # segmentos do path
+
+    matches = [v for v in allowed if v in parts]
+
+    if len(matches) == 1:
+        return matches[0]
+
+    if len(matches) > 1:
+        # Se acontecer (ex: alguém colocou pastas redundantes), escolhe o mais específico (nome maior)
+        matches = sorted(matches, key=len, reverse=True)
+        # Se o maior for “mais específico” que o segundo, retorna ele
+        if len(matches[0]) > len(matches[1]):
+            return matches[0]
+        raise ValueError(f"Detecção ambígua (pastas): {matches} em: {path}")
+
+    raise ValueError(
+        f"Não consegui detectar variável pelo caminho (modo estrito): {path}\n"
+        f"O caminho precisa conter uma pasta exatamente com um destes nomes: {sorted(allowed)}"
+    )
+
 
 
 def choose_var_name(ds: xr.Dataset, desired: str) -> str:
     if desired in ds.data_vars:
         return desired
-    if desired == "2m_air_temperature_med" and "2m_air_temperature_mean" in ds.data_vars:
-        return "2m_air_temperature_mean"
+    if desired == "2m_air_temperature":
+        for alt in ("2m_air_temperature_mean", "t2m", "t2m_mean", "air_temperature"):
+            if alt in ds.data_vars:
+                return alt
     if len(ds.data_vars) == 1:
         return list(ds.data_vars)[0]
     raise KeyError(f"Variável '{desired}' não encontrada. Vars: {list(ds.data_vars)}")
@@ -241,6 +252,12 @@ class CFSTempPipelineAuto:
         inferred_year = extract_year_from_path_optional(self.forecast_input)
         self.year = int(year_override) if year_override is not None else (inferred_year if inferred_year is not None else 0)
 
+        if self.year == 0:
+            raise ValueError(
+                "Ano não encontrado no path do forecast e --year não foi informado. "
+                "Informe --year ou inclua o ano (YYYY) no caminho do forecast."
+            )
+
         self.var_name = detect_temp_var_from_path(self.forecast_input)
 
         if self.forecast_input.is_dir():
@@ -253,10 +270,11 @@ class CFSTempPipelineAuto:
         if not self.forecast_files:
             raise FileNotFoundError(f"Nenhum forecast .nc encontrado em: {self.forecast_dir}")
 
-        # Hindcast: <hindcast-root>/<VAR>/<DOY>/
-        self.hindcast_dir = self.hindcast_root / self.var_name / self.doy
+        # Hindcast: <hindcast-root>/<VAR>/<YEAR>/<DOY>/
+        self.hindcast_dir = self.hindcast_root / self.var_name / f"{self.year:04d}" / self.doy
         if not self.hindcast_dir.is_dir():
             raise FileNotFoundError(f"Pasta de hindcast não encontrada: {self.hindcast_dir}")
+
 
         # Climatologia: <clim-root>/<VAR>/**.nc
         self.clim_var_dir = self.clim_root / self.var_name
