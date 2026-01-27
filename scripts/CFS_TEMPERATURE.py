@@ -228,6 +228,45 @@ def load_ref_latlon_from_climfile(clim_file: Path) -> Tuple[xr.DataArray, xr.Dat
 
 
 class CFSTempPipelineAuto:
+    def _find_hindcast_dir_for_doy(self) -> Path:
+        """
+        Procura pela pasta de hindcast correspondente ao DOY, ignorando o ano.
+        Preferência:
+         1) <hindcast_root>/<VAR>/<YYYY>/<DOY> onde YYYY é numérico (maior YYYY primeiro)
+         2) qualquer diretório dentro de <hindcast_root>/<VAR> com nome igual ao DOY (rglob)
+        Retorna o Path da pasta encontrada ou lança FileNotFoundError.
+        """
+        var_root = self.hindcast_root / self.var_name
+        if not var_root.is_dir():
+            raise FileNotFoundError(f"Pasta da variável não encontrada: {var_root}")
+
+        # 1) check immediate year-like children, prefer larger numeric year
+        year_dirs = []
+        for child in var_root.iterdir():
+            if child.is_dir() and child.name.isdigit() and len(child.name) == 4:
+                year_dirs.append(child)
+        # order desc so the newest year is preferred
+        year_dirs = sorted(year_dirs, key=lambda p: int(p.name), reverse=True)
+        for ydir in year_dirs:
+            cand = ydir / self.doy
+            if cand.is_dir():
+                return cand
+
+        # 2) fallback: check immediate children that may have non-numeric names
+        for child in sorted(var_root.iterdir()):
+            if child.is_dir():
+                cand = child / self.doy
+                if cand.is_dir():
+                    return cand
+
+        # 3) last-resort: recursive search for any directory named DOY under var_root
+        candidates = [p for p in var_root.rglob(self.doy) if p.is_dir()]
+        if candidates:
+            # return the first sorted candidate for deterministic behavior
+            return sorted(candidates)[0]
+
+        raise FileNotFoundError(f"Pasta de hindcast não encontrada para DOY {self.doy} em: {var_root}")
+
     def __init__(
         self,
         cfg: PipelineConfig,
@@ -242,7 +281,7 @@ class CFSTempPipelineAuto:
         self.cfg = cfg
         self.forecast_input = forecast_input.expanduser().resolve()
         self.hindcast_root = hindcast_root.expanduser().resolve()
-        self.clim_root = clim_root.expanduser().resolve()
+        self.clim_root = clim_root
         self.out_hindcast_base = out_hindcast_base.expanduser().resolve()
         self.out_corr_base = out_corr_base.expanduser().resolve()
         self.debug = bool(debug)
@@ -270,8 +309,8 @@ class CFSTempPipelineAuto:
         if not self.forecast_files:
             raise FileNotFoundError(f"Nenhum forecast .nc encontrado em: {self.forecast_dir}")
 
-        # Hindcast: <hindcast-root>/<VAR>/<YEAR>/<DOY>/
-        self.hindcast_dir = self.hindcast_root / self.var_name / f"{self.year:04d}" / self.doy
+        # Hindcast: procurar APENAS pelo DOY (ignora o ano)
+        self.hindcast_dir = self._find_hindcast_dir_for_doy()
         if not self.hindcast_dir.is_dir():
             raise FileNotFoundError(f"Pasta de hindcast não encontrada: {self.hindcast_dir}")
 
