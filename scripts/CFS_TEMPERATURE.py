@@ -140,24 +140,20 @@ def is_monthly_time_axis(time_values: np.ndarray) -> bool:
 
 
 def detect_temp_var_from_path(path: Path) -> str:
-    # Aceita SOMENTE nomes corretos como pasta no caminho
     allowed = {
         "2m_air_temperature",
         "2m_air_temperature_min",
         "2m_air_temperature_max",
     }
 
-    parts = [p.lower() for p in path.parts if p]  # segmentos do path
-
+    parts = [p.lower() for p in path.parts if p]
     matches = [v for v in allowed if v in parts]
 
     if len(matches) == 1:
         return matches[0]
 
     if len(matches) > 1:
-        # Se acontecer (ex: alguém colocou pastas redundantes), escolhe o mais específico (nome maior)
         matches = sorted(matches, key=len, reverse=True)
-        # Se o maior for “mais específico” que o segundo, retorna ele
         if len(matches[0]) > len(matches[1]):
             return matches[0]
         raise ValueError(f"Detecção ambígua (pastas): {matches} em: {path}")
@@ -166,7 +162,6 @@ def detect_temp_var_from_path(path: Path) -> str:
         f"Não consegui detectar variável pelo caminho (modo estrito): {path}\n"
         f"O caminho precisa conter uma pasta exatamente com um destes nomes: {sorted(allowed)}"
     )
-
 
 
 def choose_var_name(ds: xr.Dataset, desired: str) -> str:
@@ -240,29 +235,25 @@ class CFSTempPipelineAuto:
         if not var_root.is_dir():
             raise FileNotFoundError(f"Pasta da variável não encontrada: {var_root}")
 
-        # 1) check immediate year-like children, prefer larger numeric year
         year_dirs = []
         for child in var_root.iterdir():
             if child.is_dir() and child.name.isdigit() and len(child.name) == 4:
                 year_dirs.append(child)
-        # order desc so the newest year is preferred
+
         year_dirs = sorted(year_dirs, key=lambda p: int(p.name), reverse=True)
         for ydir in year_dirs:
             cand = ydir / self.doy
             if cand.is_dir():
                 return cand
 
-        # 2) fallback: check immediate children that may have non-numeric names
         for child in sorted(var_root.iterdir()):
             if child.is_dir():
                 cand = child / self.doy
                 if cand.is_dir():
                     return cand
 
-        # 3) last-resort: recursive search for any directory named DOY under var_root
         candidates = [p for p in var_root.rglob(self.doy) if p.is_dir()]
         if candidates:
-            # return the first sorted candidate for deterministic behavior
             return sorted(candidates)[0]
 
         raise FileNotFoundError(f"Pasta de hindcast não encontrada para DOY {self.doy} em: {var_root}")
@@ -309,20 +300,20 @@ class CFSTempPipelineAuto:
         if not self.forecast_files:
             raise FileNotFoundError(f"Nenhum forecast .nc encontrado em: {self.forecast_dir}")
 
-        # Hindcast: procurar APENAS pelo DOY (ignora o ano)
         self.hindcast_dir = self._find_hindcast_dir_for_doy()
         if not self.hindcast_dir.is_dir():
             raise FileNotFoundError(f"Pasta de hindcast não encontrada: {self.hindcast_dir}")
 
+        hind_year = self.hindcast_dir.parent.name
+        self.hindcast_year = int(hind_year) if (hind_year.isdigit() and len(hind_year) == 4) else self.year
 
-        # Climatologia: <clim-root>/<VAR>/**.nc
         self.clim_var_dir = self.clim_root / self.var_name
         self.clim_file = find_clim_file_for_var(self.clim_var_dir)
 
         self.lat_ref, self.lon_ref = load_ref_latlon_from_climfile(self.clim_file)
         self.clim_obs = self._load_obs_climatology(self.clim_file)
 
-        self.out_hindcast_root = self.out_hindcast_base / self.var_name / f"{self.year:04d}" / self.doy
+        self.out_hindcast_root = self.out_hindcast_base / self.var_name / f"{self.hindcast_year:04d}" / self.doy
         self.out_corr_root = self.out_corr_base / self.var_name / f"{self.year:04d}" / self.doy
         ensure_dir(self.out_hindcast_root)
         ensure_dir(self.out_corr_root)
@@ -521,7 +512,6 @@ class CFSTempPipelineAuto:
         n_h = hind.sizes["lead"]
         n_f = fore_m_ref.sizes["time"]
 
-        # LIMITE DINÂMICO: corrige e salva APENAS o que dá pra corrigir (até onde há hindcast)
         n_corr = min(n_h, n_f)
         if n_corr < 1:
             raise RuntimeError("n_corr < 1 (sem overlap entre hindcast leads e forecast time).")
@@ -538,7 +528,6 @@ class CFSTempPipelineAuto:
             print("mes obs (+1)    :", hm_obs)
             print("init_stamp      :", init_stamp)
 
-        # corta saída para os meses que serão corrigidos
         corr = fore_m_ref.isel(time=slice(0, n_corr)).copy()
 
         for idx in range(n_corr):
