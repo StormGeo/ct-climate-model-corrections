@@ -163,6 +163,51 @@ def build_forecast_outname(var_name: str, init_stamp: str) -> str:
 
 
 class CFSPipelineAuto:
+    def _find_hindcast_dir_for_doy(self) -> Path:
+        """
+        Procura pela pasta de hindcast correspondente ao DOY, ignorando o ano.
+        Preferência:
+         1) <hindcast_root>/<VAR>/<YYYY>/<DOY> onde YYYY é numérico (maior YYYY primeiro)
+         2) qualquer diretório dentro de <hindcast_root>/<VAR> com nome igual ao DOY (rglob)
+         3) fallback antigo: <hindcast_root>/<DOY> (mantém compatibilidade se estrutura for diferente)
+        """
+        # Prefer var-specific structure under hindcast_root
+        var_root = self.hindcast_root / self.var_name
+        if var_root.is_dir():
+            # 1) numeric year children, prefer newest year
+            year_dirs = [
+                d for d in var_root.iterdir() if d.is_dir() and d.name.isdigit() and len(d.name) == 4
+            ]
+            year_dirs = sorted(year_dirs, key=lambda p: int(p.name), reverse=True)
+            for ydir in year_dirs:
+                cand = ydir / self.doy
+                if cand.is_dir():
+                    return cand
+
+            # 2) immediate children that may contain DOY
+            for child in sorted(var_root.iterdir()):
+                if child.is_dir():
+                    cand = child / self.doy
+                    if cand.is_dir():
+                        return cand
+
+            # 3) recursive search under var_root
+            candidates = [p for p in var_root.rglob(self.doy) if p.is_dir()]
+            if candidates:
+                return sorted(candidates)[0]
+
+        # 4) backward-compatible: direct DOY under hindcast_root
+        cand_root = self.hindcast_root / self.doy
+        if cand_root.is_dir():
+            return cand_root
+
+        # 5) recursive search under hindcast_root
+        candidates = [p for p in self.hindcast_root.rglob(self.doy) if p.is_dir()]
+        if candidates:
+            return sorted(candidates)[0]
+
+        raise FileNotFoundError(f"Pasta de hindcast não encontrada para DOY {self.doy} em {self.hindcast_root}")
+
     def __init__(
         self,
         cfg: PipelineConfig,
@@ -201,16 +246,17 @@ class CFSPipelineAuto:
         if not self.forecast_files:
             raise FileNotFoundError(f"Nenhum forecast .nc encontrado em: {self.forecast_dir}")
 
-        # Hindcast root has DOY folders only (no year)
-        self.hindcast_dir = self.hindcast_root / self.doy
-        if not self.hindcast_dir.is_dir():
-            raise NotADirectoryError(f"Pasta de hindcast não encontrada: {self.hindcast_dir}")
-
         if not self.ref_grid_file.exists():
             raise FileNotFoundError(f"Ref-grid não existe: {self.ref_grid_file}")
 
+        # Load climatology first to detect the variable name (needed to locate hindcast by var)
         self.clim_obs, self.var_name = self._load_obs_climatology()
         self.lat_ref, self.lon_ref = load_ref_latlon_from_refgrid(self.ref_grid_file)
+
+        # Hindcast: procurar APENAS pelo DOY (ignora o ano), preferindo estrutura var-specific
+        self.hindcast_dir = self._find_hindcast_dir_for_doy()
+        if not self.hindcast_dir.is_dir():
+            raise NotADirectoryError(f"Pasta de hindcast não encontrada: {self.hindcast_dir}")
 
         self.out_hindcast_root = self.out_hindcast_base / self.var_name / f"{self.year:04d}" / self.doy
         self.out_corr_root = self.out_corr_base / self.var_name / f"{self.year:04d}" / self.doy
@@ -473,7 +519,7 @@ class CFSPipelineAuto:
 def parse_args():
     p = argparse.ArgumentParser(description="CFS pipeline: hindcast (DOY) + forecast -> regrid climatologia + LS-Add.")
     p.add_argument("--forecast", required=True, help="Pasta DOY do forecast OU arquivo .nc dentro dela")
-    p.add_argument("--hindcast-root", required=True, help="Diretório base do hindcast que contém subpastas 001..366")
+    p.add_argument("--hindcast-root", required=True, help="Diretório base do hindcast que contém subpastas 001..366 (ou estrutura por var/ano/DOY)")
     p.add_argument("--clim-obs", required=True, help="Climatologia observada mensal (time=12) (também define a grade)")
     p.add_argument("--ref-grid", required=True, help="Arquivo NetCDF com a grade final (use o mesmo da climatologia)")
     p.add_argument("--out-hindcast", required=True, help="Base output hindcast processado")
