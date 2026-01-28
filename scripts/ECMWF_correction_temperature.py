@@ -104,7 +104,7 @@ class ForecastCorrectionPipeline:
     # Temperature-only tokens (exact)
     VAR_TOKENS = (
         "2m_air_temperature_min",
-        "2m_air_temperature_med",
+        "2m_air_temperature",
         "2m_air_temperature_max",
     )
 
@@ -161,8 +161,8 @@ class ForecastCorrectionPipeline:
     def _temp_kind_from_var(var_name: str) -> str:
         if var_name.endswith("_min"):
             return "min"
-        if var_name.endswith("_med"):
-            return "med"
+        if var_name == "2m_air_temperature":
+            return "mean"
         if var_name.endswith("_max"):
             return "max"
         raise ValueError(f"Invalid temperature var_name: {var_name}")
@@ -350,10 +350,10 @@ class ForecastCorrectionPipeline:
 
             if kind == "min":
                 ds_m = ds.resample(time="MS").min()
-            elif kind == "med":
-                ds_m = ds.resample(time="MS").mean()
-            else:  # max
+            elif kind == "max":
                 ds_m = ds.resample(time="MS").max()
+            else:  # med
+                ds_m = ds.resample(time="MS").mean()
         else:
             ds_m = ds
 
@@ -503,7 +503,7 @@ def parse_args() -> CorrectionConfig:
         type=str,
         default=None,
         help="Output variable name (hindcast style). If omitted, auto-detect from paths: "
-             "2m_air_temperature_min / 2m_air_temperature_med / 2m_air_temperature_max",
+             "2m_air_temperature_min / 2m_air_temperature / 2m_air_temperature_max",
     )
     p.add_argument("--subfolder", type=str, default=None, help="Process only this subfolder (e.g., 335).")
     p.add_argument("--min-steps-last-month", type=int, default=2,
