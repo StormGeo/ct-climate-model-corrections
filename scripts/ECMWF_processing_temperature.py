@@ -304,8 +304,12 @@ class HindcastPipeline:
 
         t_c = t_k - 273.15
 
-        suffix_map = {"t2m_min": "min", "t2m_med": "med", "t2m_max": "max"}
-        out_name = f"2m_air_temperature_{suffix_map[kind]}"
+        if kind == "t2m_med":
+            out_name = "2m_air_temperature"
+        elif kind == "t2m_min":
+            out_name = "2m_air_temperature_min"
+        elif kind == "t2m_max":
+            out_name = "2m_air_temperature_max"
 
         t_c.name = out_name
         t_c.attrs["units"] = "degC"

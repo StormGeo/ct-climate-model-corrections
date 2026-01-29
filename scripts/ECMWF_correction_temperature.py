@@ -104,8 +104,8 @@ class ForecastCorrectionPipeline:
     # Temperature-only tokens (exact)
     VAR_TOKENS = (
         "2m_air_temperature_min",
+        "2m_air_temperature_max"
         "2m_air_temperature",
-        "2m_air_temperature_max",
     )
 
     # Raw forecast variable name (preferred, but not required)
