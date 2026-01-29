@@ -307,7 +307,7 @@ class CFSTempPipelineAuto:
         hind_year = self.hindcast_dir.parent.name
         self.hindcast_year = int(hind_year) if (hind_year.isdigit() and len(hind_year) == 4) else self.year
 
-        self.clim_var_dir = self.clim_root / self.var_name
+        self.clim_var_dir = self.clim_root #/ self.var_name
         self.clim_file = find_clim_file_for_var(self.clim_var_dir)
 
         self.lat_ref, self.lon_ref = load_ref_latlon_from_climfile(self.clim_file)
