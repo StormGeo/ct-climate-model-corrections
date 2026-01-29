@@ -13,7 +13,7 @@ PRECIP_TARGET_NAME = "total_precipitation"
 TEMP_BASE_NAME = "2m_air_temperature"  # base, saída vira _min/_med/_max
 
 GLOBAL_ATTRS = {
-    "institution": "Climatempo - MetOps",
+    "institution": "Climatempo - MetOps", 
     "source": "Hydra",
     "title": "climatempo - MetOps Netcdf file | from Hydra",
 }
