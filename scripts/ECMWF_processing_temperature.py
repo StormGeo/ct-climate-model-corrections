@@ -95,9 +95,9 @@ class HindcastConfig:
 class HindcastPipeline:
     # Temperature-only detection hints
     VAR_HINTS = {
-        "t2m_min": ["2m_air_temperature_min", "t2m_min", "2m_temperature_min", "temperature_min", "temperatura_min", "tmin"],
-        "t2m_med": ["2m_air_temperature", "t2m_med", "2m_temperature_mean", "temperature_mean", "temperatura_media", "tmean", "tmed"],
-        "t2m_max": ["2m_air_temperature_max", "t2m_max", "2m_temperature_max", "temperature_max", "temperatura_max", "tmax"],
+        "t2m_min": ["/2m_air_temperature_min/"],#, "t2m_min", "2m_temperature_min", "temperature_min", "temperatura_min", "tmin"],
+        "t2m_med": ["/2m_air_temperature/"],#, "t2m_med", "2m_temperature_mean", "temperature_mean", "temperatura_media", "tmean", "tmed"],
+        "t2m_max": ["/2m_air_temperature_max/"], #"t2m_max", "2m_temperature_max", "temperature_max", "temperatura_max", "tmax"],
     }
 
     CDS_VARIABLE = {
