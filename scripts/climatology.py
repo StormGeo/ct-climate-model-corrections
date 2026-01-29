@@ -102,7 +102,7 @@ def listar_arquivos(in_path: Path):
 # =========================
 # PROCESSAMENTO
 # =========================
-def processar_arquivo(in_nc: Path, out_dir: Path):
+def processar_arquivo(in_nc: Path, out_path: Path):
     ds = xr.open_dataset(in_nc)
     ds = padronizar_coords(ds)
 
@@ -169,12 +169,19 @@ def processar_arquivo(in_nc: Path, out_dir: Path):
     for k in ["calendar", "units", "dtype"]:
         ds_out["time"].attrs.pop(k, None)
 
-    # saída: pasta com nome da variável (em vez de "nc")
-    out_dir.mkdir(parents=True, exist_ok=True)
-    var_dir = out_dir / v_out
-    var_dir.mkdir(parents=True, exist_ok=True)
+    # -------------------------
+    # SAÍDA: usuário controla o path
+    # -------------------------
+    # Se --out terminar com .nc => é o arquivo final.
+    # Caso contrário => é diretório e salva como <var>.nc dentro dele.
+    if out_path.suffix.lower() == ".nc":
+        out_nc = out_path
+    else:
+        out_path.mkdir(parents=True, exist_ok=True)
+        out_nc = out_path / f"{v_out}.nc"
 
-    out_nc = var_dir / f"{in_nc.stem}_Monthly.nc"
+    out_nc.parent.mkdir(parents=True, exist_ok=True)
+
     ds_out.to_netcdf(out_nc, unlimited_dims=["time"], encoding=encoding)
 
     return out_nc
@@ -187,17 +194,29 @@ def main():
         description="Agrega mensal (precip=soma; temp=média) e padroniza nomes/estrutura NetCDF."
     )
     p.add_argument("--in", dest="in_path", default=".", help="Arquivo .nc ou diretório (default: .)")
-    p.add_argument("--out", dest="out_dir", default="./out", help="Diretório de saída (default: ./out)")
+    p.add_argument(
+        "--out",
+        dest="out_path",
+        default="./out",
+        help="Path de saída (arquivo .nc final OU diretório onde salvar)",
+    )
     args = p.parse_args()
 
     in_path = Path(args.in_path).expanduser().resolve()
-    out_dir = Path(args.out_dir).expanduser().resolve()
+    out_path = Path(args.out_path).expanduser().resolve()
 
     arquivos = listar_arquivos(in_path)
     print(f"Total de arquivos encontrados: {len(arquivos)}")
 
+    # Se for processar múltiplos arquivos, --out precisa ser diretório
+    if len(arquivos) > 1 and out_path.suffix.lower() == ".nc":
+        raise ValueError(
+            "Você passou um arquivo .nc em --out, mas a entrada tem múltiplos .nc. "
+            "Passe um diretório em --out para salvar um por arquivo."
+        )
+
     for f in arquivos:
-        out_nc = processar_arquivo(f, out_dir)
+        out_nc = processar_arquivo(f, out_path)
         print(f"[OK] {f} -> {out_nc}")
 
 if __name__ == "__main__":
