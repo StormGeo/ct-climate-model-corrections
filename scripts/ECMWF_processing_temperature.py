@@ -96,7 +96,7 @@ class HindcastPipeline:
     # Temperature-only detection hints
     VAR_HINTS = {
         "t2m_min": ["2m_air_temperature_min", "t2m_min", "2m_temperature_min", "temperature_min", "temperatura_min", "tmin"],
-        "t2m_med": ["2m_air_temperature_med", "t2m_med", "2m_temperature_mean", "temperature_mean", "temperatura_media", "tmean", "tmed"],
+        "t2m_med": ["2m_air_temperature", "t2m_med", "2m_temperature_mean", "temperature_mean", "temperatura_media", "tmean", "tmed"],
         "t2m_max": ["2m_air_temperature_max", "t2m_max", "2m_temperature_max", "temperature_max", "temperatura_max", "tmax"],
     }
 
@@ -186,7 +186,7 @@ class HindcastPipeline:
         if var_key == "t2m_min":
             return "2m_air_temperature_min"
         if var_key == "t2m_med":
-            return "2m_air_temperature_med"
+            return "2m_air_temperature"
         if var_key == "t2m_max":
             return "2m_air_temperature_max"
         raise ValueError(f"Unknown var_key: {var_key}")
@@ -327,7 +327,7 @@ class HindcastPipeline:
         out[out_name] = out[out_name].transpose("lead", "latitude", "longitude")
         return out
 
-    # -------------------------
+    # -------------------------detect_var_from_path_only
     # Optional regrid
     # -------------------------
     def regrid_dataset(self, out: xr.Dataset, ds_grid: xr.Dataset, weights_file: Optional[Path]) -> xr.Dataset:
@@ -355,7 +355,7 @@ class HindcastPipeline:
             out_regrid[vn] = out_regrid[vn].transpose("lead", "latitude", "longitude")
         return out_regrid
 
-    # -------------------------
+    # -------------------------detect_var_from_path_only
     # Run (temperature-only)
     # -------------------------
     def run_var(self, month_str: str, var_key: str, out_year: int) -> Path:
