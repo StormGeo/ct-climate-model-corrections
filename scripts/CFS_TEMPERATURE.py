@@ -200,7 +200,7 @@ def init_stamp_from_dataset(ds_f: xr.Dataset) -> str:
 
 
 def build_forecast_outname(var_name: str, init_stamp: str) -> str:
-    return f"cfs_glo_{var_name}_M000_{init_stamp}.nc"
+    return f"cfs_glo_{var_name}_M100_{init_stamp}.nc"
 
 
 def find_clim_file_for_var(clim_var_dir: Path) -> Path:

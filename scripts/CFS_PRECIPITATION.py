@@ -159,7 +159,7 @@ def init_stamp_from_dataset(ds_f: xr.Dataset) -> str:
 
 
 def build_forecast_outname(var_name: str, init_stamp: str) -> str:
-    return f"cfs_glo_{var_name}_M000_{init_stamp}.nc"
+    return f"cfs_glo_{var_name}_M100_{init_stamp}.nc"
 
 
 class CFSPipelineAuto:
@@ -482,7 +482,8 @@ class CFSPipelineAuto:
 
         for idx in range(n_corr):
             mes_hind = int(hm.isel(lead=idx).values)
-            mes_obs = (mes_hind % 12) + 1
+            #mes_obs = (mes_hind % 12) + 1
+            mes_obs = mes_hind  # sem shift (+1)
 
             clim_obs_m = self.clim_obs[mes_obs]
             clim_hind_m = hind.isel(lead=idx)
