@@ -14,8 +14,7 @@ import xarray as xr
 
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning)
-
-
+ 
 @dataclass(frozen=True)
 class PipelineConfig:
     default_var: str = "total_precipitation"

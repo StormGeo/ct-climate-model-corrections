@@ -196,7 +196,7 @@ def init_stamp_from_dataset(ds_f: xr.Dataset) -> str:
             return f"{s[0:4]}{s[5:7]}{s[8:10]}{s[11:13]}"
         except Exception:
             pass
-    return "0000010100"
+    return "0000010100" 
 
 
 def build_forecast_outname(var_name: str, init_stamp: str) -> str:
