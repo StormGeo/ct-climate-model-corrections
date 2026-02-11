@@ -242,7 +242,19 @@ class CFSPipelineAuto:
 
         if self.forecast_input.is_dir():
             self.forecast_dir = self.forecast_input
-            self.forecast_files = sorted(self.forecast_dir.glob("*.nc"))
+
+            # Somente membro M000 com init 00Z (termina com ...00.nc)
+            files = sorted(self.forecast_dir.glob("*_M000_*00.nc"))
+
+            if not files:
+                raise FileNotFoundError(
+                    f"Nenhum forecast M000 00Z encontrado em: {self.forecast_dir} "
+                    f"(padrão esperado: *_M000_YYYYMMDD00.nc)"
+                )
+
+            # Em geral vai ter só 1; se tiver mais de 1, pega o mais recente pelo nome
+            self.forecast_files = [files[-1]]
+
         else:
             self.forecast_dir = self.forecast_input.parent
             self.forecast_files = [self.forecast_input]
