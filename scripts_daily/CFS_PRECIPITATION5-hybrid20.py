@@ -36,6 +36,12 @@ class PipelineConfig:
     # Cache month weights (month_sum + idx_map) on disk for reuse
     cache_month_weights_to_disk: bool = True
 
+    # Option 2: allow extra months beyond hindcast (repeat last monthly total, but real-month weights)
+    extend_months: int = 1  # ALWAYS 1 now (10 months window possible)
+
+    # NEW: hard limit output to N daily steps (always)
+    max_days_output: int = 280
+
 
 # =============================================================================
 # Helpers
@@ -90,6 +96,7 @@ def extract_lead_from_filename(name: str) -> Optional[int]:
         return int(m.group(1))
     return None
 
+
 def init_stamp_from_filename_strict(path: Path) -> str:
     """
     Extrai YYYYMMDDHH diretamente do nome do arquivo de forecast.
@@ -98,10 +105,9 @@ def init_stamp_from_filename_strict(path: Path) -> str:
     """
     m = re.search(r"(19|20)\d{8}", path.name)
     if not m:
-        raise ValueError(
-            f"Não achei init_stamp YYYYMMDDHH no nome do arquivo: {path.name}"
-        )
+        raise ValueError(f"Não achei init_stamp YYYYMMDDHH no nome do arquivo: {path.name}")
     return m.group(0)
+
 
 def month_from_doy_and_lead(doy_str: str, lead: int) -> int:
     start_doy = int(doy_str)
@@ -145,32 +151,6 @@ def load_ref_latlon_from_refgrid(ref_grid_file: Path) -> Tuple[xr.DataArray, xr.
     ds_ref = normalize_coords_latlon(ds_ref)
     ds_ref = sort_latlon(ds_ref)
     return ds_ref["latitude"], ds_ref["longitude"]
-
-
-def parse_init_from_time_units(units: str) -> Optional[str]:
-    if not units:
-        return None
-    m = re.search(r"since\s+(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})", units)
-    if not m:
-        return None
-    yyyy, mm, dd, hh, _, _ = m.groups()
-    return f"{yyyy}{mm}{dd}{hh}"
-
-
-def init_stamp_from_dataset(ds_f: xr.Dataset) -> str:
-    if "time" in ds_f.coords:
-        units = ds_f["time"].attrs.get("units", "")
-        stamp = parse_init_from_time_units(units)
-        if stamp:
-            return stamp
-        try:
-            t0 = ds_f["time"].values[0].astype("datetime64[h]")
-            s = str(t0)
-            yyyy = s[0:4]; mm = s[5:7]; dd = s[8:10]; hh = s[11:13]
-            return f"{yyyy}{mm}{dd}{hh}"
-        except Exception:
-            pass
-    return "0000010100"
 
 
 def build_forecast_outname(var_name: str, init_stamp: str) -> str:
@@ -242,19 +222,13 @@ class CFSPipelineAuto:
 
         if self.forecast_input.is_dir():
             self.forecast_dir = self.forecast_input
-
-            # Somente membro M000 com init 00Z (termina com ...00.nc)
             files = sorted(self.forecast_dir.glob("*_M000_*00.nc"))
-
             if not files:
                 raise FileNotFoundError(
                     f"Nenhum forecast M000 00Z encontrado em: {self.forecast_dir} "
                     f"(padrão esperado: *_M000_YYYYMMDD00.nc)"
                 )
-
-            # Em geral vai ter só 1; se tiver mais de 1, pega o mais recente pelo nome
             self.forecast_files = [files[-1]]
-
         else:
             self.forecast_dir = self.forecast_input.parent
             self.forecast_files = [self.forecast_input]
@@ -265,7 +239,6 @@ class CFSPipelineAuto:
         if not self.ref_grid_file.exists():
             raise FileNotFoundError(f"Ref-grid não existe: {self.ref_grid_file}")
 
-        # Load obs climatology FAST (single read) -> clim_lookup[doy, y, x]
         t0 = time.time()
         self._clim_lookup, self._max_doy, self.var_name = self._load_obs_climatology_daily_fast()
         self._ny = self._clim_lookup.shape[1]
@@ -273,24 +246,19 @@ class CFSPipelineAuto:
         if self.debug:
             print("[T] build clim_lookup (FAST one-read):", round(time.time() - t0, 2), "s")
 
-        # ref grid lat/lon
         self.lat_ref, self.lon_ref = load_ref_latlon_from_refgrid(self.ref_grid_file)
 
-        # hindcast location
         self.hindcast_dir = self._find_hindcast_dir_for_doy()
         if not self.hindcast_dir.is_dir():
             raise NotADirectoryError(f"Pasta de hindcast não encontrada: {self.hindcast_dir}")
 
-        # outputs
         self.out_hindcast_root = self.out_hindcast_base / self.var_name / f"{self.year:04d}" / self.doy
         self.out_corr_root = self.out_corr_base / self.var_name / f"{self.year:04d}" / self.doy
         ensure_dir(self.out_hindcast_root)
         ensure_dir(self.out_corr_root)
 
-        # XESMF regridder state
         self._regridder = None
 
-        # Month cache (on-demand)
         self._month_cache_sum: Dict[int, np.ndarray] = {}
         self._month_cache_idx: Dict[int, np.ndarray] = {}
 
@@ -305,6 +273,8 @@ class CFSPipelineAuto:
             print("var_name       :", self.var_name)
             print("out_hindcast   :", self.out_hindcast_root)
             print("out_corr       :", self.out_corr_root)
+            print("extend_months  :", int(self.cfg.extend_months))
+            print("max_days_output:", int(self.cfg.max_days_output))
 
     # -------------------------------------------------------------------------
     # Obs daily climatology FAST (one read)
@@ -323,23 +293,18 @@ class CFSPipelineAuto:
         if "time" not in da.dims:
             raise ValueError("Climatologia observada diária precisa ter dimensão 'time'.")
 
-        # Ensure order
         da = da.transpose("time", "latitude", "longitude")
 
         n = int(da.sizes["time"])
         if n < 365:
             raise ValueError(f"Climatologia diária esperada >=365 passos, veio time={n}.")
 
-        # SINGLE READ: load all data once
         da = da.astype("float32").load()
 
-        # DOY per timestep
         doys = da["time"].dt.dayofyear.values.astype(np.int32)
         if doys.size != da.sizes["time"]:
             raise ValueError("Falha ao obter dayofyear da climatologia.")
 
-        # We want unique DOY mapping (climatology should be 365/366 days)
-        # If file has duplicates (multiple years), we keep first occurrence per DOY.
         max_doy = int(doys.max())
         ny = int(da.sizes["latitude"])
         nx = int(da.sizes["longitude"])
@@ -347,14 +312,13 @@ class CFSPipelineAuto:
         clim_lookup = np.zeros((max_doy + 1, ny, nx), dtype=np.float32)
         filled = np.zeros((max_doy + 1,), dtype=bool)
 
-        vals = da.values  # (time, y, x)
+        vals = da.values
         for i in range(vals.shape[0]):
             d = int(doys[i])
             if 1 <= d <= max_doy and (not filled[d]):
                 clim_lookup[d, :, :] = vals[i, :, :]
                 filled[d] = True
 
-        # Validate at least 365 filled
         nfilled = int(filled.sum()) - int(filled[0])
         if nfilled < 365:
             raise ValueError(f"Climatologia diária insuficiente: preencheu {nfilled} DOYs (esperado >=365).")
@@ -390,7 +354,7 @@ class CFSPipelineAuto:
             month_sum = np.zeros((self._ny, self._nx), dtype=np.float32)
             idx_map = np.full((self._max_doy + 1,), -1, dtype=np.int32)
         else:
-            clim_days = self._clim_lookup[doys_m, :, :]  # (nd, y, x)
+            clim_days = self._clim_lookup[doys_m, :, :]
             month_sum = np.sum(clim_days, axis=0).astype(np.float32)
 
             idx_map = np.full((self._max_doy + 1,), -1, dtype=np.int32)
@@ -613,13 +577,17 @@ class CFSPipelineAuto:
         hm = ds_h["month"]
         n_hind_leads = int(hind_m.sizes["lead"])
 
-        # CUT 6/6h by lead range (before aggregation)
+        extend_months = int(self.cfg.extend_months)
+        max_lead_out = n_hind_leads + extend_months
+
+        # CUT 6/6h by lead range (before aggregation) - now up to max_lead_out
         t_6h_days = ds_f["time"].values.astype("datetime64[D]")
         lead0_6h = (t_6h_days.astype("datetime64[M]").astype(int) - t_init.astype("datetime64[M]").astype(int))
         lead_arr_6h = (lead0_6h + 1).astype(np.int32)
-        valid_idx_6h = np.where((lead_arr_6h >= 1) & (lead_arr_6h <= n_hind_leads))[0]
+
+        valid_idx_6h = np.where((lead_arr_6h >= 1) & (lead_arr_6h <= max_lead_out))[0]
         if valid_idx_6h.size < 1:
-            raise RuntimeError("Nenhum timestep 6/6h do forecast está dentro do alcance de leads do hindcast.")
+            raise RuntimeError("Nenhum timestep 6/6h do forecast está dentro do alcance de leads de saída.")
 
         fore_slice = fore.isel(time=valid_idx_6h)
 
@@ -627,6 +595,8 @@ class CFSPipelineAuto:
             print(f"\n=== CORRIGINDO (DIÁRIO) {forecast_path.name} ===")
             print("init_stamp:", init_stamp)
             print("n_hind_leads:", n_hind_leads,
+                  "| extend_months:", extend_months,
+                  "| max_lead_out:", max_lead_out,
                   "| kept_6h_steps:", int(valid_idx_6h.size),
                   "| total_6h_steps:", int(ds_f['time'].size))
 
@@ -641,11 +611,51 @@ class CFSPipelineAuto:
             print("[T] after regrid (xesmf):", round(time.time() - t0, 2), "s")
             t0 = time.time()
 
-        # day->lead and day->doy(2001)
+        # ---------------------------------------------------------------------
+        # HARD LIMIT OUTPUT TO 280 DAYS (or cfg.max_days_output)
+        # ---------------------------------------------------------------------
+        MAX_DAYS = int(self.cfg.max_days_output)
+        t_daily_all = fore_d_ref["time"].values.astype("datetime64[D]")
+        if t_daily_all.size < 1:
+            raise RuntimeError("Forecast diário ficou vazio após resample/regrid.")
+
+        t0_day = t_daily_all[0]
+        t_end = t0_day + np.timedelta64(MAX_DAYS - 1, "D")
+        idx_280 = np.where((t_daily_all >= t0_day) & (t_daily_all <= t_end))[0]
+        if idx_280.size < 1:
+            raise RuntimeError("Limite de max_days_output removeu todos os dias (verifique o eixo time).")
+
+        fore_d_ref = fore_d_ref.isel(time=idx_280)
+
+        if self.debug:
+            print("[DBG] limited daily days:", int(fore_d_ref["time"].size),
+                  "| first:", str(fore_d_ref["time"].values[0]),
+                  "| last:", str(fore_d_ref["time"].values[-1]))
+        # ---------------------------------------------------------------------
+
+        # day->lead and day->doy(2001) (AFTER limiting)
         t_days = fore_d_ref["time"].values.astype("datetime64[D]")
         lead0 = (t_days.astype("datetime64[M]").astype(int) - t_init.astype("datetime64[M]").astype(int))
         lead_arr = (lead0 + 1).astype(np.int32)
         doys = np.array([doy_of_2001_from_yyyy_mm_dd(t) for t in t_days], dtype=np.int32)
+
+        # keep only leads within output range (1..max_lead_out)
+        keep_d = np.where((lead_arr >= 1) & (lead_arr <= max_lead_out))[0]
+        if keep_d.size < 1:
+            raise RuntimeError("Após limite de dias, nenhum dia ficou dentro do alcance de leads de saída.")
+
+        fore_d_ref = fore_d_ref.isel(time=keep_d)
+        t_days = fore_d_ref["time"].values.astype("datetime64[D]")
+        lead_arr = lead_arr[keep_d]
+        doys = doys[keep_d]
+
+        # lead_used: clamp beyond hindcast to last hindcast lead (Option 2 behavior)
+        lead_used = np.minimum(lead_arr, n_hind_leads).astype(np.int32)
+
+        if self.debug:
+            print("[DBG] daily days kept after lead filter:", int(fore_d_ref["time"].size),
+                  "| lead_arr min/max:", int(lead_arr.min()), int(lead_arr.max()),
+                  "| lead_used min/max:", int(lead_used.min()), int(lead_used.max()))
 
         # clim for all selected days (FAST gather)
         clim_all = self._clim_lookup[doys, :, :]  # (T, y, x)
@@ -657,75 +667,124 @@ class CFSPipelineAuto:
         corr_np = fore_d_ref.values.astype(np.float32, copy=True)   # (T, y, x)
         hind_np = hind_m.values.astype(np.float32)                  # (lead, y, x)
 
+        denom_min = 1e-3
+        alpha = denom_min
+        p = 0.30
+
         for L in range(1, n_hind_leads + 1):
-            idx = np.where(lead_arr == L)[0]
-            if idx.size < 1:
+            idx_all = np.where(lead_used == L)[0]
+            if idx_all.size < 1:
                 continue
 
-            mes_hind = int(hm.isel(lead=L - 1).values)
+            hind_total_m = hind_np[L - 1, :, :]  # (y,x) mm/mês do lead L (para L=last, repetido)
 
-            t_cache = time.time()
-            month_sum, _idx_map = self._get_month_sum_and_idxmap(mes_hind)
-            if self.debug:
-                print(f"[T] month cache load/build for month={mes_hind:02d}:", round(time.time() - t_cache, 2), "s")
+            if L < n_hind_leads:
+                # Leads normais: usa mês do próprio hindcast-lead para os pesos
+                mes_weights = int(hm.isel(lead=L - 1).values)
 
-            doys_sel = doys[idx]
-            if (doys_sel > self._max_doy).any():
-                nd = float(idx.size)
-                w_stack = np.full((idx.size, self._ny, self._nx), 1.0 / nd, dtype=np.float32)
-            else:
-                clim_sel = self._clim_lookup[doys_sel, :, :]  # (n, y, x)
-                nd = float(idx.size)
-                w_stack = np.where(
-                    month_sum[None, :, :] > 0,
-                    clim_sel / month_sum[None, :, :],
-                    (1.0 / nd)
+                t_cache = time.time()
+                month_sum, _idx_map = self._get_month_sum_and_idxmap(mes_weights)
+                if self.debug:
+                    print(f"[T] month cache load/build for month={mes_weights:02d}:", round(time.time() - t_cache, 2), "s")
+
+                doys_sel = doys[idx_all]
+                if (doys_sel > self._max_doy).any():
+                    nd = float(idx_all.size)
+                    w_stack = np.full((idx_all.size, self._ny, self._nx), 1.0 / nd, dtype=np.float32)
+                else:
+                    clim_sel = self._clim_lookup[doys_sel, :, :]
+                    nd = float(idx_all.size)
+                    w_stack = np.where(
+                        month_sum[None, :, :] > 0,
+                        clim_sel / month_sum[None, :, :],
+                        (1.0 / nd)
+                    ).astype(np.float32)
+
+                hind_est_d = hind_total_m[None, :, :] * w_stack
+
+                clim_obs_d  = clim_all[idx_all, :, :]
+                clim_hind_d = hind_est_d
+                fore_d_blk  = corr_np[idx_all, :, :]
+
+                factor = (clim_obs_d + alpha) / (clim_hind_d + alpha)
+                corr_ratio = fore_d_blk * factor
+                corr_add   = fore_d_blk + (clim_obs_d - clim_hind_d)
+
+                corr_candidate = np.where(
+                    clim_hind_d < denom_min,
+                    corr_add,
+                    corr_ratio
                 ).astype(np.float32)
 
-            hind_total_m = hind_np[L - 1, :, :]                 # (y, x) mm/mês
-            hind_est_d = hind_total_m[None, :, :] * w_stack     # (n, y, x) mm/dia
+                corr_candidate = np.where(
+                    clim_obs_d == 0,
+                    fore_d_blk,
+                    corr_candidate
+                ).astype(np.float32)
 
-            # -------------------------------
-            # Correção multiplicativa + fallback + limite percentual na climatologia
-            # -------------------------------
-            denom_min = 1e-3   # mm/dia -> ativa fallback quando hind_est_d < denom_min
-            alpha = denom_min  # regularização para evitar div/0
+                cmin = (1.0 - p) * clim_obs_d
+                cmax = (1.0 + p) * clim_obs_d
+                corr_limited = np.clip(corr_candidate, cmin, cmax).astype(np.float32)
 
-            p = 0.30           # 20% (limite relativo à climatologia observada)
+                corr_np[idx_all, :, :] = corr_limited
 
-            clim_obs_d  = clim_all[idx, :, :]      # (n,y,x) mm/dia
-            clim_hind_d = hind_est_d               # (n,y,x) mm/dia
-            fore_d      = corr_np[idx, :, :]       # (n,y,x) mm/dia
+            else:
+                # Último lead: aplicar pesos por mês REAL (dos dias), mantendo o total do último lead.
+                months_real = t_days[idx_all].astype("datetime64[M]")
+                uniq_months = np.unique(months_real)
 
-            # candidatos de correção
-            factor = (clim_obs_d + alpha) / (clim_hind_d + alpha)
-            corr_ratio = fore_d * factor
-            corr_add   = fore_d + (clim_obs_d - clim_hind_d)
+                for mM in uniq_months:
+                    idx_m = idx_all[np.where(months_real == mM)[0]]
+                    if idx_m.size < 1:
+                        continue
 
-            # escolhe multiplicativo ou fallback aditivo
-            corr_candidate = np.where(
-                clim_hind_d < denom_min,
-                corr_add,
-                corr_ratio
-            ).astype(np.float32)
+                    mes_weights = int(str(mM)[5:7])  # 1..12
 
-            # regra: se climatologia observada é 0, não corrige (mantém forecast)
-            corr_candidate = np.where(
-                clim_obs_d == 0,
-                fore_d,
-                corr_candidate
-            ).astype(np.float32)
+                    t_cache = time.time()
+                    month_sum, _idx_map = self._get_month_sum_and_idxmap(mes_weights)
+                    if self.debug:
+                        print(f"[T] month cache load/build for month={mes_weights:02d}:", round(time.time() - t_cache, 2), "s")
 
-            # aplica limite percentual em torno da climatologia observada
-            cmin = (1.0 - p) * clim_obs_d
-            cmax = (1.0 + p) * clim_obs_d
+                    doys_sel = doys[idx_m]
+                    if (doys_sel > self._max_doy).any():
+                        nd = float(idx_m.size)
+                        w_stack = np.full((idx_m.size, self._ny, self._nx), 1.0 / nd, dtype=np.float32)
+                    else:
+                        clim_sel = self._clim_lookup[doys_sel, :, :]
+                        nd = float(idx_m.size)
+                        w_stack = np.where(
+                            month_sum[None, :, :] > 0,
+                            clim_sel / month_sum[None, :, :],
+                            (1.0 / nd)
+                        ).astype(np.float32)
 
-            # se clim_obs==0, cmin=cmax=0, mas já preservamos fore_d acima
-            corr_limited = np.clip(corr_candidate, cmin, cmax).astype(np.float32)
+                    hind_est_d = hind_total_m[None, :, :] * w_stack
 
-            corr_np[idx, :, :] = corr_limited
+                    clim_obs_d  = clim_all[idx_m, :, :]
+                    clim_hind_d = hind_est_d
+                    fore_d_blk  = corr_np[idx_m, :, :]
 
+                    factor = (clim_obs_d + alpha) / (clim_hind_d + alpha)
+                    corr_ratio = fore_d_blk * factor
+                    corr_add   = fore_d_blk + (clim_obs_d - clim_hind_d)
 
+                    corr_candidate = np.where(
+                        clim_hind_d < denom_min,
+                        corr_add,
+                        corr_ratio
+                    ).astype(np.float32)
+
+                    corr_candidate = np.where(
+                        clim_obs_d == 0,
+                        fore_d_blk,
+                        corr_candidate
+                    ).astype(np.float32)
+
+                    cmin = (1.0 - p) * clim_obs_d
+                    cmax = (1.0 + p) * clim_obs_d
+                    corr_limited = np.clip(corr_candidate, cmin, cmax).astype(np.float32)
+
+                    corr_np[idx_m, :, :] = corr_limited
 
         corr_np = np.clip(corr_np, 0, None).astype(np.float32)
 
@@ -787,6 +846,7 @@ def parse_args():
                    help="Hindcast time: 00z (default), first, mean")
     p.add_argument("--hindcast-leads-expected", type=int, default=9,
                    help="Número máximo de leads (meses) para tentar usar (default=9).")
+    # NOTE: extend_months is fixed in config as 1; no CLI flag needed.
     p.add_argument("--netcdf-engine", default="netcdf4", help="Engine do to_netcdf (recomendado: netcdf4)")
     p.add_argument("--zlib", action="store_true", help="Ativa compressão (mais lento).")
     p.add_argument("--no-month-cache-disk", action="store_true",
@@ -803,6 +863,8 @@ def main():
         netcdf_engine=str(args.netcdf_engine),
         zlib=bool(args.zlib),
         cache_month_weights_to_disk=(not bool(args.no_month_cache_disk)),
+        extend_months=1,          # ALWAYS 1
+        max_days_output=280,      # ALWAYS 280 output days
     )
 
     pipe = CFSPipelineAuto(
