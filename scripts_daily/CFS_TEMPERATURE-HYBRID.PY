@@ -40,7 +40,7 @@ class PipelineConfig:
 
     # Optional clipping around daily obs climatology (ABSOLUTE LIMIT, not percent)
     clip_with_abs_limit: bool = True
-    clip_delta_c: float = 10       # ±1.5°C
+    clip_delta_c: float = 4       # ±1.5°C
 
 
 TEMP_ALLOWED = {
