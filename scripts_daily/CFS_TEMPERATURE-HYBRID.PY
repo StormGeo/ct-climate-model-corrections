@@ -40,7 +40,7 @@ class PipelineConfig:
 
     # Optional clipping around daily obs climatology (ABSOLUTE LIMIT, not percent)
     clip_with_abs_limit: bool = True
-    clip_delta_c: float = 1.5       # ±1.5°C
+    clip_delta_c: float = 10       # ±1.5°C
 
 
 TEMP_ALLOWED = {
@@ -757,7 +757,7 @@ def parse_args():
 
     # Clipping absoluto
     p.add_argument("--no-clip", action="store_true", help="Desativa o clipping em torno da climatologia observada.")
-    p.add_argument("--clip-delta-c", type=float, default=1.5, help="Delta absoluto em °C (default=1.5).")
+    p.add_argument("--clip-delta-c", type=float, default=4, help="Delta absoluto em °C (default=4).")
 
     p.add_argument("--debug", action="store_true", help="Logs verbosos")
     return p.parse_args()
