@@ -1,0 +1,117 @@
+processamento:
+
+ECMWF:
+python3 run_hindcast_tp.py --doy-root /home/felipe/corre_models/2025/ECMWF/total_precipitation/2024/001 --out-grib /home/felipe/daily_correct/prec/ECMWF_HINDCAST_OUT --out-nc /home/felipe/daily_correct/prec/ECMWF_HINDCAST_OUT_PROCESSED --regrid --ref-grid /home/felipe/daily_correct/merge_as_total_precipitation_20010101.nc --originating-centre ecmwf --system 51 --model-prefix ecmwf_subseas_glo --input-var tprate
+
+frace:
+
+python3 run_hindcast_tp.py   --doy-root /home/felipe/corre_models/2025/meteo_france/total_precipitation/2024   --out-grib /home/felipe/corre_models/precipitacao/METEOFRANCE_HINDCAST_OUT   --out-nc /home/felipe/corre_models/precipitacao/METEOFRANCE_HINDCAST_OUT_PROCESSED   --regrid   --ref-grid /home/felipe/operacao_linux/precip_mensal.nc   --originating-centre lfpw   --system 9   --model-prefix meteofrance_subseas_glo   --input-var tprate
+
+uk:
+
+python3 run_hindcast_tp.py \
+  --doy-root /home/felipe/corre_models/2025/ukmo/total_precipitation/2023 \
+  --out-grib /home/felipe/corre_models/precipitacao/UKMO_HINDCAST_OUT \
+  --out-nc /home/felipe/corre_models/precipitacao/UKMO_HINDCAST_OUT_PROCESSED \
+  --originating-centre egrr \
+  --system 603 \
+  --model-prefix ukmo_sys603 \
+  --input-var tprate \
+  --regrid \
+  --ref-grid /home/felipe/corre_models/precip_mensal.nc
+
+JMA
+
+python3 run_hindcast_tp.py \
+  --doy-root /home/felipe/corre_models/2025/JMA/total_precipitation/2024 \
+  --out-grib /home/felipe/corre_models/precipitacao/JMA_HINDCAST_OUT \
+  --out-nc /home/felipe/corre_models/precipitacao/JMA_HINDCAST_OUT_PROCESSED \
+  --originating-centre jma \
+  --system 3 \
+  --model-prefix jma_sys3 \
+  --input-var tprate \
+  --regrid \
+  --ref-grid /home/felipe/corre_models/precip_mensal.nc
+
+
+DWD
+
+python3 run_hindcast_tp.py \
+  --doy-root /home/felipe/corre_models/2025/DWD/total_precipitation/2024 \
+  --out-grib /home/felipe/corre_models/precipitacao/DWD_HINDCAST_OUT \
+  --out-nc /home/felipe/corre_models/precipitacao/DWD_HINDCAST_OUT_PROCESSED \
+  --originating-centre dwd \
+  --system 2 \
+  --model-prefix dwd_sys2 \
+  --input-var tprate \
+  --regrid \
+  --ref-grid /home/felipe/corre_models/precip_mensal.nc
+
+
+CMCC
+
+python3 run_hindcast_tp.py   --doy-root /home/felipe/corre_models/2025/CMCC/total_precipitation/2024/001   --out-grib /home/felipe/corre_models/end_2025/CMCC_HINDCAST_OUT   --out-nc /home/felipe/corre_models/end_2025/CMCC_HINDCAST_OUT_PROCESSED   --originating-centre cmcc   --system 35   --model-prefix cmcc_sys35   --input-var tprate   --regrid   --ref-grid /home/felipe/corre_models/precip_mensal.nc
+
+ECCC
+
+python3 run_hindcast_tp.py   --doy-root /home/felipe/corre_models/2025/ECCC/total_precipitation/2024/001   --out-grib /home/felipe/daily_correct/prec/ECCC_HINDCAST_OUT   --out-nc /home/felipe/daily_correct/prec/ECCC_HINDCAST_OUT_PROCESSED   --originating-centre eccc   --system 4   --model-prefix eccc_sys4   --input-var tprate   --regrid   --ref-grid /home/felipe/daily_correct/merge_as_total_precipitation_20010101.nc
+
+NCEP
+
+python3 run_hindcast_tp.py   --doy-root /home/felipe/corre_models/2025/NCEP/total_precipitation/2024/001/   --out-grib /home/felipe/daily_correct/prec/NCEP_HINDCAST_OUT   --out-nc /home/felipe/daily_correct/prec/NCEP_HINDCAST_OUT_PROCESSED   --originating-centre ncep   --system 2   --model-prefix ncep_sys2   --input-var tprate   --regrid   --ref-grid /home/felipe/daily_correct/merge_as_total_precipitation_20010101.nc
+
+
+correção:
+
+ECMWF:
+
+python3 run_correction_tp.py   --forecast-root /home/felipe/corre_models/2025/ECMWF/total_precipitation/2024   --hindcast-root /home/felipe/corre_models/precipitacao/ECMWF_HINDCAST_OUT_PROCESSED/total_precipitation/2024   --clim-file /home/felipe/corre_models/precip_mensal.nc   --out-root /home/felipe/corre_models/precipitacao/ECMWF_CORR   --var-name total_precipitation
+
+frace:
+
+python3 run_correction_tp.py \
+  --forecast-root /home/felipe/corre_models/2025/meteo_france/total_precipitation/2023 \
+  --hindcast-root /home/felipe/corre_models/precipitacao/METEOFRANCE_HINDCAST_OUT_PROCESSED/total_precipitation/2023 \
+  --clim-file /home/felipe/corre_models/precip_mensal.nc \
+  --out-root /home/felipe/corre_models/precipitacao/METEOFRANCE_CORR \
+  --var-name total_precipitation
+
+uk:
+
+python3 run_correction_tp.py \
+  --forecast-root /home/felipe/operacao_linux/2025/UKMO_2025 \
+  --hindcast-root /home/felipe/corre_models/precipitacao/UKMO_HINDCAST_OUT_PROCESSED/total_precipitation/2023 \
+  --clim-file /home/felipe/corre_models/precip_mensal.nc \
+  --out-root /home/felipe/corre_models/precipitacao/UKMO_CORR \
+  --var-name total_precipitation
+
+JMA
+
+python3 run_correction_tp.py \
+  --forecast-root /home/felipe/corre_models/precipitacao/JMA_FORECAST_OUT_PROCESSED \
+  --hindcast-root /home/felipe/corre_models/precipitacao/JMA_HINDCAST_OUT_PROCESSED \
+  --clim-file /home/felipe/corre_models/precip_mensal.nc \
+  --out-root /home/felipe/corre_models/precipitacao/JMA_CORRECTED \
+  --var-name total_precipitation
+
+DWD:
+
+python3 run_correction_tp.py \
+  --forecast-root /home/felipe/corre_models/2025/DWD/total_precipitation/2024 \
+  --hindcast-root /home/felipe/corre_models/end_2025/DWD_HINDCAST_OUT_PROCESSED/total_precipitation/2024 \
+  --clim-file /home/felipe/corre_models/precip_mensal.nc \
+  --out-root /home/felipe/corre_models/end_2025/DWD_CORRECTED \
+  --var-name total_precipitation
+
+
+CMCC:
+python3 run_correction_tp.py   --forecast-root /home/felipe/corre_models/2025/CMCC/total_precipitation/2024   --hindcast-root /home/felipe/daily_correct/prec/CMCC_HINDCAST_OUT_PROCESSED/total_precipitation/2024   --clim-file /home/felipe/daily_correct/merge_as_total_precipitation_20010101.nc   --out-root /home/felipe/daily_correct/prec/CMCC_CORR   --var-name total_precipitation
+
+
+ECCC:
+
+python3 run_correction_tp.py   --forecast-root /home/felipe/corre_models/2025/ECCC/total_precipitation/2024/001/   --hindcast-root /home/felipe/daily_correct/prec/ECCC_HINDCAST_OUT_PROCESSED/total_precipitation/2024   --clim-file /home/felipe/daily_correct/merge_as_total_precipitation_20010101.nc   --out-root /home/felipe/daily_correct/prec/ECCC_CORR   --var-name total_precipitation
+
+NCEP:
+
+python3 run_correction_tp.py   --forecast-root /home/felipe/daily_correct/2025/NCEP/total_precipitation/2024/001/   --hindcast-root /home/felipe/daily_correct/prec/NCEP_HINDCAST_OUT_PROCESSED/total_precipitation/2024   --clim-file /home/felipe/daily_correct/merge_as_total_precipitation_20010101.nc   --out-root /home/felipe/daily_correct/prec/NCEP_CORR   --var-name total_precipitation
