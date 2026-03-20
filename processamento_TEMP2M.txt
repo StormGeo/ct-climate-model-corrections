@@ -1,0 +1,69 @@
+processamento TEMP2M:
+
+ECMWF:
+
+python run_hindcast_t2m.py   --doy-root /home/felipe/daily_correct/2025/ECMWF/2m_air_temperature_min/2024/001   --out-grib /home/felipe/daily_correct/temp/ECMWF_HINDCAST_OUT   --out-nc /home/felipe/daily_correct/temp/ECMWF_HINDCAST_OUT_PROCESSED   --originating-centre ecmwf   --system 51   --model-prefix ecmwf_subseas_glo   --regrid   --ref-grid /home/felipe/daily_correct/climatologia/era5_glo_2m_air_temperature_min_20010101.nc
+
+Frace:
+
+python run_hindcast_t2m.py   --doy-root /home/felipe/daily_correct/2025/ECMWF/2m_air_temperature_min/2024/001   --out-grib /home/felipe/daily_correct/temp/FRACE_HINDCAST_OUT   --out-nc /home/felipe/daily_correct/temp/FRANCE_HINDCAST_OUT_PROCESSED   --originating-centre meteo_france   --system 9   --model-prefix meteofrance_subseas_glo   --regrid   --ref-grid /home/felipe/daily_correct/climatologia/era5_glo_2m_air_temperature_min_20010101.nc
+
+Uk:
+
+python run_hindcast_t2m.py   --doy-root /home/felipe/daily_correct/2025/UK/2m_air_temperature_min/2024/001   --out-grib /home/felipe/daily_correct/temp/UK_HINDCAST_OUT   --out-nc /home/felipe/daily_correct/temp/UK_HINDCAST_OUT_PROCESSED   --originating-centre egrr   --system 603   --model-prefix ukmo_subseas_glo   --regrid   --ref-grid /home/felipe/daily_correct/climatologia/era5_glo_2m_air_temperature_min_20010101.nc
+
+JMA:
+
+python run_hindcast_t2m.py   --doy-root /home/felipe/daily_correct/2025/JMA/2m_air_temperature_min/2024/001   --out-grib /home/felipe/daily_correct/temp/JMA_HINDCAST_OUT   --out-nc /home/felipe/daily_correct/temp/JMA_HINDCAST_OUT_PROCESSED   --originating-centre rjtd   --system 3   --model-prefix jma_subseas_glo   --regrid   --ref-grid /home/felipe/daily_correct/climatologia/era5_glo_2m_air_temperature_min_20010101.nc
+
+DWD:
+
+python run_hindcast_t2m.py   --doy-root /home/felipe/daily_correct/2025/UK/2m_air_temperature_min/2024/001   --out-grib /home/felipe/daily_correct/temp/UK_HINDCAST_OUT   --out-nc /home/felipe/daily_correct/temp/UK_HINDCAST_OUT_PROCESSED   --originating-centre egrr   --system 603   --model-prefix ukmo_subseas_glo   --regrid   --ref-grid /home/felipe/daily_correct/climatologia/era5_glo_2m_air_temperature_min_20010101.nc
+
+CMCC:
+
+python run_hindcast_t2m.py   --doy-root /home/felipe/daily_correct/2025/CMCC/2m_air_temperature_min/2024/001   --out-grib /home/felipe/daily_correct/temp/CMCC_HINDCAST_OUT   --out-nc /home/felipe/daily_correct/temp/CMCC_HINDCAST_OUT_PROCESSED   --originating-centre cnmc   --system 35   --model-prefix cmcc_subseas_glo   --regrid   --ref-grid /home/felipe/daily_correct/climatologia/era5_glo_2m_air_temperature_min_20010101.nc
+
+ECCC:
+
+python run_hindcast_t2m.py   --doy-root /home/felipe/daily_correct/2025/ECCC/2m_air_temperature_min/2024/001   --out-grib /home/felipe/daily_correct/temp/ECCC_HINDCAST_OUT   --out-nc /home/felipe/daily_correct/temp/ECCC_HINDCAST_OUT_PROCESSED   --originating-centre cwao   --system 4   --model-prefix eccc_subseas_glo   --regrid   --ref-grid /home/felipe/daily_correct/climatologia/era5_glo_2m_air_temperature_min_20010101.nc
+
+NCEP:
+
+python run_hindcast_t2m.py   --doy-root /home/felipe/daily_correct/2025/NCEP/2m_air_temperature_min/2024/001   --out-grib /home/felipe/daily_correct/temp/NCEP_HINDCAST_OUT   --out-nc /home/felipe/daily_correct/temp/NCEP_HINDCAST_OUT_PROCESSED   --originating-centre kwbc   --system 2   --model-prefix ncep_subseas_glo   --regrid   --ref-grid /home/felipe/daily_correct/climatologia/era5_glo_2m_air_temperature_min_20010101.nc
+
+
+correção:
+
+ECMWF:
+
+python run_correction_t2m.py   --forecast-root /home/felipe/daily_correct/2025/ECMWF/2m_air_temperature_min/2024/001   --hindcast-root /home/felipe/daily_correct/temp/ECMWF_HINDCAST_OUT_PROCESSED/2m_air_temperature_min/2024   --clim-file /home/felipe/daily_correct/climatologia   --out-root /home/felipe/daily_correct/temp/ECMWF_CORR   --clip-delta-c 1.5
+
+Frace:
+
+ python run_correction_t2m.py   --forecast-root /home/felipe/daily_correct/2025/meteo_france/2m_air_temperature_min/2024/001   --hindcast-root /home/felipe/daily_correct/temp/FRANCE_HINDCAST_OUT_PROCESSED/2m_air_temperature_min/2024   --clim-file /home/felipe/daily_correct/climatologia   --out-root /home/felipe/daily_correct/temp/FRANE_
+CORR   --clip-delta-c 1.5
+
+uk:
+
+python run_correction_t2m.py   --forecast-root /home/felipe/daily_correct/2025/UK/2m_air_temperature_min/2024/001   --hindcast-root /home/felipe/daily_correct/temp/UK_HINDCAST_OUT_PROCESSED/2m_air_temperature_min/2024   --clim-file /home/felipe/daily_correct/climatologia   --out-root /home/felipe/daily_correct/temp/UK_CORR   --clip-delta-c 1.5
+
+JMA
+
+python run_correction_t2m.py   --forecast-root /home/felipe/daily_correct/2025/JMA/2m_air_temperature_min/2024/001   --hindcast-root /home/felipe/daily_correct/temp/JMA_HINDCAST_OUT_PROCESSED/2m_air_temperature_min/2024   --clim-file /home/felipe/daily_correct/climatologia   --out-root /home/felipe/daily_correct/temp/JMA_CORR   --clip-delta-c 1.5
+
+DWD:
+
+python run_correction_t2m.py   --forecast-root /home/felipe/daily_correct/2025/DWD/2m_air_temperature_min/2024/001   --hindcast-root /home/felipe/daily_correct/temp/DWD_HINDCAST_OUT_PROCESSED/2m_air_temperature_min/2024   --clim-file /home/felipe/daily_correct/climatologia   --out-root /home/felipe/daily_correct/temp/DWD_CORR   --clip-delta-c 1.5
+
+CMCC:
+
+python run_correction_t2m.py   --forecast-root /home/felipe/daily_correct/2025/CMCC/2m_air_temperature_min/2024/001   --hindcast-root /home/felipe/daily_correct/temp/CMCC_HINDCAST_OUT_PROCESSED/2m_air_temperature_min/2024   --clim-file /home/felipe/daily_correct/climatologia   --out-root /home/felipe/daily_correct/temp/CMCC_CORR   --clip-delta-c 1.5
+
+ECCC:
+
+python run_correction_t2m.py   --forecast-root /home/felipe/daily_correct/2025/ECCC/2m_air_temperature_min/2024/001   --hindcast-root /home/felipe/daily_correct/temp/ECCC_HINDCAST_OUT_PROCESSED/2m_air_temperature_min/2024   --clim-file /home/felipe/daily_correct/climatologia   --out-root /home/felipe/daily_correct/temp/ECCC_CORR   --clip-delta-c 1.5
+
+NCEP:
+
+python run_correction_t2m.py   --forecast-root /home/felipe/daily_correct/2025/NCEP/2m_air_temperature_min/2024/001   --hindcast-root /home/felipe/daily_correct/temp3/NCEP_HINDCAST_OUT_PROCESSED/2m_air_temperature_min/2024   --clim-file /home/felipe/daily_correct/climatologia   --out-root /home/felipe/daily_correct/temp3/NCEP_CORR   --clip-delta-c 1.5
