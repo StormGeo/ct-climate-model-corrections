@@ -54,8 +54,8 @@ def main():
         except Exception:
             out_year = extract_year_from_path(Path(args.out_grib).expanduser().resolve())
 
-    out_grib_root = Path(args.out_grib) / var_folder
-    out_nc_root = Path(args.out_nc) / var_folder
+    out_grib_root = Path(args.out_grib)
+    out_nc_root = Path(args.out_nc)
 
     cfg = HindcastConfig(
         originating_centre=str(args.originating_centre),

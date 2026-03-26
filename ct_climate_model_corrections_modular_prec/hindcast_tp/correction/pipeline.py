@@ -38,7 +38,7 @@ class ForecastCorrectionPipeline:
         except Exception:
             self.out_year = extract_year_from_path(self.cfg.hindcast_root)
 
-        self.out_base = (self.cfg.out_root / self.cfg.var_name / str(self.out_year)).expanduser().resolve()
+        self.out_base = self.cfg.out_root.expanduser().resolve()
         self.out_base.mkdir(parents=True, exist_ok=True)
 
         # Load observed daily climatology once (fast lookup by DOY)
@@ -526,7 +526,7 @@ class ForecastCorrectionPipeline:
         return sorted(self.cfg.forecast_root.rglob("*.nc"))
 
     def _out_path(self, forecast_path: Path, doy_subdir: str) -> Path:
-        out_dir = self.out_base / doy_subdir
+        out_dir = self.out_base
         out_dir.mkdir(parents=True, exist_ok=True)
 
         init_stamp = self._init_stamp_from_filename_strict(forecast_path)
