@@ -1,9 +1,19 @@
 from __future__ import annotations
 from pathlib import Path
 import cdsapi
+from dotenv import load_dotenv
+import os
+
+
+load_dotenv("/airflow/base/credentials/.felipe_cds")
+
+API = os.getenv("API")
+KEY = os.getenv("KEY")
+
 from .config import HindcastConfig
 
 def download_grib(cfg: HindcastConfig, month_str: str, out_file: Path) -> None:
+    print(out_file)
     out_file.parent.mkdir(parents=True, exist_ok=True)
 
     # REQUEST alinhado 100% com o formulário do CDS
@@ -85,7 +95,7 @@ def download_grib(cfg: HindcastConfig, month_str: str, out_file: Path) -> None:
     
     print("REQUEST FINAL:", request)
 
-    c = cdsapi.Client()
+    c = cdsapi.Client(url=API, key=KEY, quiet=True)
     c.retrieve(cfg.dataset, request, str(out_file))
 
     print("[OK] Download completed")
