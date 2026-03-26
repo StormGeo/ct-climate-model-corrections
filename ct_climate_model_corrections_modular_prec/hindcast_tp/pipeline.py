@@ -99,8 +99,8 @@ class HindcastPipeline:
 
     
         # Use request_year when organizando GRIBs por ano (recomendado)
-        grib_dir = self.out_grib_root / str(request_year) / subdir
-        nc_dir = self.out_nc_root / str(out_year) / subdir
+        grib_dir = self.out_grib_root
+        nc_dir = self.out_nc_root
         grib_dir.mkdir(parents=True, exist_ok=True)
         nc_dir.mkdir(parents=True, exist_ok=True)
     
