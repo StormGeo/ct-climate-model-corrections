@@ -41,6 +41,10 @@ class ForecastCorrectionPipeline:
         self.out_base = self.cfg.out_root.expanduser().resolve()
         self.out_base.mkdir(parents=True, exist_ok=True)
 
+        self.cache_dir = self.out_base / getattr(self.cfg, "regrid_cache_subdir", "cache")
+        if getattr(self.cfg, "save_regrid_weights", True):
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+
         # Load observed daily climatology once (fast lookup by DOY)
         self.clim_lookup, self.max_doy, self.lat_ref, self.lon_ref = self._load_obs_climatology_daily_fast(
             self.cfg.clim_file, self.cfg.var_name, self.cfg.to_mm
@@ -211,14 +215,18 @@ class ForecastCorrectionPipeline:
              "lon": (("lon",), self.lon_ref.values)}
         )
 
-        wfile = str(self.out_base / "regrid_weights.nc")
-        reuse = Path(wfile).exists()
-
-        self._regridder = xe.Regridder(
-            grid_in, grid_out, "bilinear",
-            filename=wfile,
-            reuse_weights=reuse
-        )
+        if getattr(self.cfg, "save_regrid_weights", True):
+            wfile = self.cache_dir / "regrid_weights.nc"
+            reuse = wfile.exists()
+            self._regridder = xe.Regridder(
+                grid_in, grid_out, "bilinear",
+                filename=str(wfile),
+                reuse_weights=reuse
+            )
+        else:
+            self._regridder = xe.Regridder(
+                grid_in, grid_out, "bilinear"
+            )
 
     def _regrid_to_ref(self, ds: xr.Dataset) -> xr.Dataset:
         ds = self._std_latlon(ds)
@@ -236,7 +244,7 @@ class ForecastCorrectionPipeline:
 
         # weights file dependente do shape da grade
         wfile = (
-            self.out_base
+            self.cache_dir
             / f"regrid_weights_in{ny_in}x{nx_in}_out{ny_ref}x{nx_ref}.nc"
         )
 
@@ -264,13 +272,20 @@ class ForecastCorrectionPipeline:
                 }
             )
 
-            self._regridder = xe.Regridder(
-                grid_in,
-                grid_out,
-                "bilinear",
-                filename=str(wfile),
-                reuse_weights=wfile.exists(),
-            )
+            if getattr(self.cfg, "save_regrid_weights", True):
+                self._regridder = xe.Regridder(
+                    grid_in,
+                    grid_out,
+                    "bilinear",
+                    filename=str(wfile),
+                    reuse_weights=wfile.exists(),
+                )
+            else:
+                self._regridder = xe.Regridder(
+                    grid_in,
+                    grid_out,
+                    "bilinear",
+                )
 
             # guarda shape da grade de entrada
             self._regridder._input_shape = (ny_in, nx_in)
@@ -321,8 +336,7 @@ class ForecastCorrectionPipeline:
     # IO helpers
     # -------------------------------------------------------------------------
     def _load_hindcast(self, doy_subdir: str) -> xr.Dataset:
-        subdir = self.cfg.hindcast_root / doy_subdir
-        files = sorted(subdir.glob("*.nc"))
+        files = sorted(self.cfg.hindcast_root.glob("*.nc"))
         if not files:
             raise FileNotFoundError(f"No hindcast .nc files found in: {subdir}")
 

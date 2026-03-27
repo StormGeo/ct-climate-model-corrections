@@ -133,8 +133,8 @@ class HindcastPipeline:
                 raise FileNotFoundError(f"Reference grid file does not exist: {self.ref_grid}")
     
             weights_file = None
-            if self.cfg.reuse_weights:
-                weights_dir = self.out_nc_root / "_weights"
+            if self.cfg.save_regrid_weights:
+                weights_dir = self.out_nc_root / self.cfg.regrid_cache_subdir
                 weights_file = weights_dir / f"weights_{self.cfg.regrid_method}_periodic{int(self.cfg.regrid_periodic)}.nc"
     
             print(f"[INFO] Regridding enabled: method={self.cfg.regrid_method} periodic={self.cfg.regrid_periodic}")

@@ -21,3 +21,6 @@ class CorrectionConfig:
     denom_min: float = 1e-3
     alpha: float = 1e-3
     limit_p: float = 0.30
+
+    save_regrid_weights: bool = True
+    regrid_cache_subdir: str = "cache"

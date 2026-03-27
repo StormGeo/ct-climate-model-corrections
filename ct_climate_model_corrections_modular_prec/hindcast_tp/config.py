@@ -18,6 +18,8 @@ DEFAULT_YEARS = [str(y) for y in range(1993, 2017)]  # 1993–2016
 DEFAULT_REGRID_METHOD = "bilinear"
 DEFAULT_REGRID_PERIODIC = True
 DEFAULT_REUSE_WEIGHTS = True
+DEFAULT_SAVE_REGRID_WEIGHTS = True
+DEFAULT_REGRID_CACHE_SUBDIR = "cache"
 
 DEFAULT_MODEL_PREFIX = "ecmwf_subseas_glo"
 DEFAULT_INPUT_VAR = "tprate"
@@ -43,6 +45,8 @@ class HindcastConfig:
     regrid_method: str = DEFAULT_REGRID_METHOD
     regrid_periodic: bool = DEFAULT_REGRID_PERIODIC
     reuse_weights: bool = DEFAULT_REUSE_WEIGHTS
+    save_regrid_weights: bool = DEFAULT_SAVE_REGRID_WEIGHTS
+    regrid_cache_subdir: str = DEFAULT_REGRID_CACHE_SUBDIR
 
     def __post_init__(self):
         object.__setattr__(self, "variable", DEFAULT_VARIABLE if self.variable is None else self.variable)

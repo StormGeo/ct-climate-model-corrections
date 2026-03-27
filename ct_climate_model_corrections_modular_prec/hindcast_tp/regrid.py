@@ -13,7 +13,7 @@ def regrid_dataset(out: xr.Dataset, ref_grid_path: Path, cfg: HindcastConfig, we
     kwargs = dict(method=cfg.regrid_method, periodic=cfg.regrid_periodic, reuse_weights=False)
     if weights_file is not None:
         weights_file.parent.mkdir(parents=True, exist_ok=True)
-        if weights_file.exists():
+        if cfg.reuse_weights and weights_file.exists():
             kwargs["reuse_weights"] = True
         kwargs["filename"] = str(weights_file)
 
