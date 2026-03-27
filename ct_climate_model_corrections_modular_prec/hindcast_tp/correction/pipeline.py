@@ -336,7 +336,10 @@ class ForecastCorrectionPipeline:
     # IO helpers
     # -------------------------------------------------------------------------
     def _load_hindcast(self, doy_subdir: str) -> xr.Dataset:
-        files = sorted(self.cfg.hindcast_root.glob("*.nc"))
+        files = [
+            fp for fp in sorted(self.cfg.forecast_root.rglob("*.nc"))
+            if "M000" in fp.name
+        ]
         if not files:
             raise FileNotFoundError(f"No hindcast .nc files found in: {subdir}")
 
