@@ -32,6 +32,24 @@ def parse_args():
     p.add_argument("--out-nc", required=True, help="Base directory for NetCDF outputs")
     p.add_argument("--regrid", action="store_true", help="Enable regridding using xesmf")
     p.add_argument("--ref-grid", default=None, help="NetCDF reference grid file (lat/lon or latitude/longitude)")
+    p.add_argument(
+        "--save-regrid-weights",
+        dest="save_regrid_weights",
+        action="store_true",
+        default=True,
+        help="Save regridding weights for reuse in future runs.",
+    )
+    p.add_argument(
+        "--no-save-regrid-weights",
+        dest="save_regrid_weights",
+        action="store_false",
+        help="Do not save regridding weights.",
+    )
+    p.add_argument(
+        "--regrid-cache-subdir",
+        default="cache",
+        help="Subdirectory under --out-nc used to store regridding weights (default: cache).",
+    )
 
     p.add_argument("--originating-centre", default="ecmwf", help="CDS originating_centre (e.g., ecmwf, lfpw)")
     p.add_argument("--system", default="51", help="CDS system id (e.g., 51, 9)")
@@ -62,6 +80,8 @@ def main():
         system=str(args.system),
         model_prefix=str(args.model_prefix),
         input_var=str(args.input_var),
+        save_regrid_weights=bool(args.save_regrid_weights),
+        regrid_cache_subdir=str(args.regrid_cache_subdir),
     )
 
     pipeline = HindcastPipeline(cfg, out_grib_root, out_nc_root, bool(args.regrid), ref_grid)

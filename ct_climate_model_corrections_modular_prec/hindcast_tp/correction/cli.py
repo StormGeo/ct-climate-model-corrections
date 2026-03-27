@@ -24,6 +24,13 @@ def parse_args() -> CorrectionConfig:
     p.add_argument("--subfolder", type=str, default=None, help="Process only one DOY subfolder (e.g., 335).")
     p.add_argument("--no-skip-existing", action="store_true", help="Do not skip outputs that already exist.")
 
+    p.add_argument("--save-regrid-weights", dest="save_regrid_weights", action="store_true", default=True,
+                   help="Salvar os pesos do regrid para reutilizacao futura.")
+    p.add_argument("--no-save-regrid-weights", dest="save_regrid_weights", action="store_false",
+                   help="Nao salvar os pesos do regrid.")
+    p.add_argument("--regrid-cache-subdir", type=str, default="cache",
+                   help="Subpasta dentro de out-root para salvar o cache de pesos do regrid.")
+
     # optional tuning (keep defaults if not provided)
     p.add_argument("--limit-p", type=float, default=0.30, help="Clamp corrected values to climatology ±p (default 0.30).")
     p.add_argument("--denom-min", type=float, default=1e-3, help="Fallback threshold for multiplicative correction (default 1e-3).")
@@ -41,6 +48,8 @@ def parse_args() -> CorrectionConfig:
         denom_min=float(a.denom_min),
         alpha=float(a.denom_min),
         limit_p=float(a.limit_p),
+        save_regrid_weights=bool(a.save_regrid_weights),
+        regrid_cache_subdir=str(a.regrid_cache_subdir),
     )
 
 
