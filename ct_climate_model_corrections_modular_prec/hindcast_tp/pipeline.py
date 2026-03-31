@@ -27,7 +27,7 @@ class HindcastPipeline:
         return folder_path / f"{centre}_sys{system}_tp_hindcast_monthly_mean_init{month_str}_1993-2016_lead1-6_global.grib"
 
     def build_operational_nc_filename(self, var_name: str, init_stamp: str) -> str:
-        return f"{self.cfg.model_prefix}_{var_name}_AVG_{init_stamp}.nc"
+        return f"hindcast_{self.cfg.model_prefix}_{var_name}_{init_stamp}.nc"
 
     def build_nc_outfile_operational(self, nc_dir: Path, out_year: int, month_str: str) -> Path:
         init_stamp = f"{out_year:04d}{int(month_str):02d}0100"
