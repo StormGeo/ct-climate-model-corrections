@@ -4,7 +4,9 @@ from pathlib import Path
 from typing import Dict, Tuple, List, Optional
 
 import re
+from datetime import datetime
 import numpy as np
+import pandas as pd
 import xarray as xr
 
 from .config import CorrectionConfig
@@ -332,16 +334,89 @@ class ForecastCorrectionPipeline:
 
         return out
 
+    @staticmethod
+    def _build_time_units(time_values: np.ndarray) -> str:
+        t0 = pd.Timestamp(time_values[0]).strftime("%Y-%m-%d %H:%M:%S")
+        return f"hours since {t0}"
+
+    def _format_corrected_output(self, ds: xr.Dataset) -> tuple[xr.Dataset, dict]:
+        ds = ds.copy()
+
+        rename = {}
+        if "lat" in ds.coords or "lat" in ds.dims:
+            rename["lat"] = "latitude"
+        if "lon" in ds.coords or "lon" in ds.dims:
+            rename["lon"] = "longitude"
+        if rename:
+            ds = ds.rename(rename)
+
+        var_name = self.cfg.var_name
+        fill_value = np.float32(-9.99e8)
+        time_units = self._build_time_units(ds["time"].values)
+        now = datetime.utcnow().strftime("%Y%m%d%H")
+
+        ds[var_name] = ds[var_name].astype("float32")
+
+        ds["time"].attrs.pop("units", None)
+        ds["time"].attrs.pop("calendar", None)
+
+        if "units" in ds["time"].encoding:
+            del ds["time"].encoding["units"]
+        if "calendar" in ds["time"].encoding:
+            del ds["time"].encoding["calendar"]
+
+        ds["time"].attrs["standard_name"] = "time"
+        ds["time"].attrs["axis"] = "T"
+
+        ds["latitude"].attrs = {
+            "standard_name": "latitude",
+            "long_name": "latitude",
+            "units": "degrees_north",
+            "grads_dim": "Y",
+        }
+
+        ds["longitude"].attrs = {
+            "standard_name": "longitude",
+            "long_name": "longitude",
+            "units": "degrees_east",
+            "grads_dim": "x",
+        }
+
+        ds[var_name].attrs = {
+            "units": "mm",
+            "missing_value": fill_value,
+        }
+
+        ds.attrs = {
+            "institution": "Climatempo - MetOps",
+            "source": "Hydra",
+            "description": f"netcdf file created by Hydra in {now}",
+            "title": "climatempo - MetOps Netcdf file | from Hydra",
+            "history": f"Created in {now}",
+        }
+
+        encoding = {
+            var_name: {
+                "_FillValue": fill_value,
+                "dtype": "float32",
+                "least_significant_digit": 2,
+            },
+            "time": {
+                "dtype": "float32",
+                "units": time_units,
+                "calendar": "standard",
+            },
+        }
+
+        return ds, encoding
+
     # -------------------------------------------------------------------------
     # IO helpers
     # -------------------------------------------------------------------------
     def _load_hindcast(self, doy_subdir: str) -> xr.Dataset:
-        files = [
-            fp for fp in sorted(self.cfg.forecast_root.rglob("*.nc"))
-            if "M000" in fp.name
-        ]
+        files = sorted(self.cfg.hindcast_root.glob("*.nc"))
         if not files:
-            raise FileNotFoundError(f"No hindcast .nc files found in: {subdir}")
+            raise FileNotFoundError(f"No hindcast .nc files found in: {self.cfg.hindcast_root}")
 
         ds = xr.open_dataset(files[0])
         ds = self._std_latlon(ds)
@@ -492,7 +567,6 @@ class ForecastCorrectionPipeline:
             clim_hind_d = hind_est_d                # (n, y, x)
             fore_d      = corr_np[idx, :, :]        # (n, y, x)
 
-            # correction: multiplicative, fallback to additive, and clamp around obs clim
             factor = (clim_obs_d + alpha) / (clim_hind_d + alpha)
             corr_ratio = fore_d * factor
             corr_add   = fore_d + (clim_obs_d - clim_hind_d)
@@ -503,14 +577,12 @@ class ForecastCorrectionPipeline:
                 corr_ratio
             ).astype(np.float32)
 
-            # if obs clim is 0, do not correct (keep forecast)
             corr_candidate = np.where(
                 clim_obs_d == 0,
                 fore_d,
                 corr_candidate
             ).astype(np.float32)
 
-            # clamp around obs clim (±p)
             cmin = (1.0 - p) * clim_obs_d
             cmax = (1.0 + p) * clim_obs_d
             corr_limited = np.clip(corr_candidate, cmin, cmax).astype(np.float32)
@@ -538,9 +610,11 @@ class ForecastCorrectionPipeline:
     # -------------------------------------------------------------------------
     def _forecast_files(self) -> List[Path]:
         if self.cfg.subfolder:
-            d = (self.cfg.forecast_root / self.cfg.subfolder)
-            return sorted(d.glob("*.nc"))
-        return sorted(self.cfg.forecast_root.rglob("*.nc"))
+            files = sorted((self.cfg.forecast_root / self.cfg.subfolder).glob("*.nc"))
+        else:
+            files = sorted(self.cfg.forecast_root.rglob("*.nc"))
+
+        return [fp for fp in files if "M000" in fp.name]
 
     def _out_path(self, forecast_path: Path, doy_subdir: str) -> Path:
         out_dir = self.out_base
@@ -583,7 +657,8 @@ class ForecastCorrectionPipeline:
             t_init = ds0["time"].values[0].astype("datetime64[D]")
 
             out = self._correct_daily(fore_d_ref, hind, t_init)
-            out.to_netcdf(out_fp)
+            out, encoding = self._format_corrected_output(out)
+            out.to_netcdf(out_fp, encoding=encoding)
 
             print("[OK] Saved")
 
