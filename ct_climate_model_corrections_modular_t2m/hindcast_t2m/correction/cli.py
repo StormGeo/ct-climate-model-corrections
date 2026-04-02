@@ -92,6 +92,12 @@ def parse_args():
     )
     p.add_argument("--subfolder", default=None, help="Subpasta opcional dentro de cada DOY para buscar forecast files")
     p.add_argument("--no-skip", action="store_true", help="Não pular outputs já existentes")
+    p.add_argument("--save-regrid-weights", dest="save_regrid_weights", action="store_true", default=True,
+                   help="Salvar os pesos do regrid para reutilização futura.")
+    p.add_argument("--no-save-regrid-weights", dest="save_regrid_weights", action="store_false",
+                   help="Não salvar os pesos do regrid.")
+    p.add_argument("--regrid-cache-subdir", default="cache",
+                   help="Subpasta dentro de --out-root para salvar pesos do regrid.")
 
     p.add_argument("--max-days-output", type=int, default=280, help="Hard limit output to N daily steps (default 280)")
     p.add_argument("--extend-months", type=int, default=1, help="Allow N extra months beyond hindcast leads (default 1)")
@@ -132,6 +138,8 @@ def main():
         extend_months=int(args.extend_months),
         clip_with_abs_limit=(not bool(args.no_clip)),
         clip_delta_c=float(args.clip_delta_c),
+        save_regrid_weights=bool(args.save_regrid_weights),
+        regrid_cache_subdir=str(args.regrid_cache_subdir),
     )
 
     ForecastCorrectionPipeline(cfg).run()

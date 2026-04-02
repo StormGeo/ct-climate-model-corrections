@@ -56,6 +56,8 @@ class HindcastConfig:
     regrid_method: str = DEFAULT_REGRID_METHOD
     regrid_periodic: bool = DEFAULT_REGRID_PERIODIC
     reuse_weights: bool = DEFAULT_REUSE_WEIGHTS
+    save_regrid_weights: bool = True
+    regrid_cache_subdir: str = "cache"
 
     def __post_init__(self):
         object.__setattr__(self, "variable", DEFAULT_VARIABLE if self.variable is None else self.variable)
