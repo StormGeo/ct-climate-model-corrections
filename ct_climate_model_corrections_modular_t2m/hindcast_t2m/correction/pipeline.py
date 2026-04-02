@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 
 from .config import CorrectionConfig
@@ -189,12 +191,19 @@ class ForecastCorrectionPipeline:
         # Key by shape + endpoints (enough to avoid mixing grids)
         return (int(lat.size), int(lon.size), float(lat[0]), float(lat[-1]), float(lon[0]), float(lon[-1]))
 
-    def _build_regridder(self, ds_in: xr.Dataset, weights_file: Path) -> xe.Regridder:
+    def _build_regridder(self, ds_in: xr.Dataset, weights_file: Optional[Path]) -> xe.Regridder:
         if xe is None:
             raise RuntimeError("xesmf is required for regridding.")
 
         ds_in = _std_latlon(ds_in)
         ds_in = _sort_latlon(ds_in)
+        if weights_file is None:
+            grid_in = xr.Dataset(
+                {"lat": (("lat",), ds_in["latitude"].values), "lon": (("lon",), ds_in["longitude"].values)}
+            )
+            grid_out = xr.Dataset({"lat": (("lat",), self._lat_ref.values), "lon": (("lon",), self._lon_ref.values)})
+            return xe.Regridder(grid_in, grid_out, "bilinear")
+
         # weights_file can be a directory; build a unique filename per source grid shape
         if weights_file.suffix != ".nc":
             ensure_dir(weights_file)
@@ -220,7 +229,7 @@ class ForecastCorrectionPipeline:
         )
         return regridder
 
-    def _regrid_to_ref(self, ds: xr.Dataset, weights_file: Path) -> xr.Dataset:
+    def _regrid_to_ref(self, ds: xr.Dataset, weights_file: Optional[Path]) -> xr.Dataset:
         ds = _std_latlon(ds)
         ds = _sort_latlon(ds)
         gkey = self._grid_key(ds)
@@ -239,11 +248,10 @@ class ForecastCorrectionPipeline:
     # ------------------------------------------------------------------
     # Hindcast / forecast IO
     # ------------------------------------------------------------------
-    def _load_hindcast(self, doy_subdir: str, weights_file: Path) -> xr.Dataset:
-        subdir = self.hindcast_root / doy_subdir
-        files = sorted(subdir.glob("*.nc"))
+    def _load_hindcast(self, doy_subdir: str, weights_file: Optional[Path]) -> xr.Dataset:
+        files = sorted(self.hindcast_root.glob("*.nc"))
         if not files:
-            raise FileNotFoundError(f"No hindcast .nc files found in: {subdir}")
+            raise FileNotFoundError(f"No hindcast .nc files found in: {self.hindcast_root}")
 
         ds = xr.open_dataset(files[0])
         ds = _std_latlon(ds)
@@ -270,7 +278,74 @@ class ForecastCorrectionPipeline:
         out.attrs["units"] = "degC"
         return out
 
-    def _preprocess_forecast_daily(self, forecast_path: Path, hind: xr.Dataset, weights_file: Path) -> Tuple[xr.DataArray, np.datetime64, str]:
+    def _build_time_units(self, time_values: np.ndarray) -> str:
+        t0 = pd.Timestamp(time_values[0]).strftime("%Y-%m-%d %H:%M:%S")
+        return f"hours since {t0}"
+
+    def _format_corrected_output(self, ds: xr.Dataset) -> tuple[xr.Dataset, dict]:
+        ds = ds.copy()
+
+        var_name = self.cfg.var_name
+        fill_value = np.float32(-9.99e8)
+        time_units = self._build_time_units(ds["time"].values)
+        now = datetime.utcnow().strftime("%Y%m%d%H")
+
+        ds[var_name] = ds[var_name].astype("float32")
+
+        ds["time"].attrs.pop("units", None)
+        ds["time"].attrs.pop("calendar", None)
+
+        if "units" in ds["time"].encoding:
+            del ds["time"].encoding["units"]
+        if "calendar" in ds["time"].encoding:
+            del ds["time"].encoding["calendar"]
+
+        ds["time"].attrs["standard_name"] = "time"
+        ds["time"].attrs["axis"] = "T"
+
+        ds["latitude"].attrs = {
+            "standard_name": "latitude",
+            "long_name": "latitude",
+            "units": "degrees_north",
+            "grads_dim": "Y",
+        }
+
+        ds["longitude"].attrs = {
+            "standard_name": "longitude",
+            "long_name": "longitude",
+            "units": "degrees_east",
+            "grads_dim": "x",
+        }
+
+        ds[var_name].attrs = {
+            "units": "C",
+            "missing_value": fill_value,
+        }
+
+        ds.attrs = {
+            "institution": "Climatempo - MetOps",
+            "source": "Hydra",
+            "description": f"netcdf file created by Hydra in {now}",
+            "title": "climatempo - MetOps Netcdf file | from Hydra",
+            "history": f"Created in {now}",
+        }
+
+        encoding = {
+            var_name: {
+                "_FillValue": fill_value,
+                "dtype": "float32",
+                "least_significant_digit": 2,
+            },
+            "time": {
+                "dtype": "float32",
+                "units": time_units,
+                "calendar": "standard",
+            },
+        }
+
+        return ds, encoding
+
+    def _preprocess_forecast_daily(self, forecast_path: Path, hind: xr.Dataset, weights_file: Optional[Path]) -> Tuple[xr.DataArray, np.datetime64, str]:
         ds = xr.open_dataset(forecast_path)
         ds = _std_latlon(ds)
         ds = _sort_latlon(ds)
@@ -444,6 +519,10 @@ class ForecastCorrectionPipeline:
             out = out + ".nc"
         return out
 
+    def _forecast_files(self, in_dir: Path) -> List[Path]:
+        files = sorted(in_dir.glob("*.nc"))
+        return [fp for fp in files if "M000" in fp.name]
+
     def run(self) -> None:
         # DOY selection behavior:
         # - If forecast_root itself is a DOY folder (.../2024/001) -> process only that DOY
@@ -459,8 +538,7 @@ class ForecastCorrectionPipeline:
             doy_dirs = [doy_dirs_all[-1]]
 
         # --- LOG header (similar to precip module) ---
-        # Determine output base (same used later): <out_root>/<var>/<year>
-        output_base = self.out_root / self.cfg.var_name / f"{self.out_year:04d}"
+        output_base = self.out_root
 
         # Count forecast files across selected DOYs (usually 1 DOY)
         total_forecast_files = 0
@@ -470,7 +548,7 @@ class ForecastCorrectionPipeline:
                 in_dir = in_dir / self.cfg.subfolder
                 if not in_dir.exists():
                     continue
-            total_forecast_files += len(list(in_dir.glob("*.nc")))
+            total_forecast_files += len(self._forecast_files(in_dir))
 
         print(f"Total raw forecast files: {total_forecast_files}")
         print(f"Output base: {output_base}")
@@ -486,15 +564,16 @@ class ForecastCorrectionPipeline:
                 if not in_dir.exists():
                     continue
 
-            out_dir = self.out_root / self.cfg.var_name / f"{self.out_year:04d}" / doy
+            out_dir = self.out_root
             ensure_dir(out_dir)
 
-            # one weights file per DOY to avoid mixing grids
-            weights_file = out_dir / "_weights"
+            weights_file = None
+            if self.cfg.save_regrid_weights:
+                weights_file = out_dir / self.cfg.regrid_cache_subdir
 
             hind = self._load_hindcast(doy, weights_file=weights_file)
 
-            forecast_files = sorted(in_dir.glob("*.nc"))
+            forecast_files = self._forecast_files(in_dir)
             if not forecast_files:
                 continue
 
@@ -514,7 +593,7 @@ class ForecastCorrectionPipeline:
                 fore_daily, t_init, _ = self._preprocess_forecast_daily(fp, hind, weights_file=weights_file)
                 ds_corr = self._correct_daily(fore_daily, hind, t_init=t_init)
 
-                enc = {self.cfg.var_name: {"dtype": "float32", "zlib": False}}
+                ds_corr, enc = self._format_corrected_output(ds_corr)
                 ds_corr.to_netcdf(out_path, encoding=enc)
 
                 print("[OK] Saved")

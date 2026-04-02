@@ -46,7 +46,7 @@ class HindcastPipeline:
         )
 
     def build_operational_nc_filename(self, var_name: str, init_stamp: str) -> str:
-        return f"{self.cfg.model_prefix}_{var_name}_AVG_{init_stamp}.nc"
+        return f"hindcast_{self.cfg.model_prefix}_{var_name}_{init_stamp}.nc"
 
     def build_nc_outfile_operational(self, nc_dir: Path, out_year: int, month_str: str) -> Path:
         init_stamp = f"{out_year:04d}{int(month_str):02d}0100"
@@ -111,9 +111,9 @@ class HindcastPipeline:
             request_year, request_month = prev_month_str(out_year, month_str)
 
         # Organiza GRIB por request_year (o ano real do arquivo solicitado)
-        grib_dir = self.out_grib_root / str(request_year) / subdir
-        # Organiza NC por out_year/mês-alvo
-        nc_dir = self.out_nc_root / str(out_year) / subdir
+        grib_dir = self.out_grib_root
+        # Organiza NC exatamente no diretório informado
+        nc_dir = self.out_nc_root
         grib_dir.mkdir(parents=True, exist_ok=True)
         nc_dir.mkdir(parents=True, exist_ok=True)
 
@@ -156,8 +156,8 @@ class HindcastPipeline:
                 raise FileNotFoundError(f"Reference grid file does not exist: {self.ref_grid}")
 
             weights_file = None
-            if self.cfg.reuse_weights:
-                weights_dir = self.out_nc_root / "_weights"
+            if self.cfg.save_regrid_weights:
+                weights_dir = self.out_nc_root / self.cfg.regrid_cache_subdir
                 weights_dir.mkdir(parents=True, exist_ok=True)
                 weights_file = weights_dir / f"weights_{self.cfg.regrid_method}_periodic{int(self.cfg.regrid_periodic)}.nc"
 

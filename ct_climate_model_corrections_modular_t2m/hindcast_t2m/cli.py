@@ -46,6 +46,12 @@ def parse_args():
     p.add_argument("--out-nc", required=True, help="Base directory for NetCDF outputs")
     p.add_argument("--regrid", action="store_true", help="Enable regridding using xesmf")
     p.add_argument("--ref-grid", default=None, help="NetCDF reference grid file (lat/lon or latitude/longitude)")
+    p.add_argument("--save-regrid-weights", dest="save_regrid_weights", action="store_true", default=True,
+                   help="Salvar os pesos do regrid para reutilização futura.")
+    p.add_argument("--no-save-regrid-weights", dest="save_regrid_weights", action="store_false",
+                   help="Não salvar os pesos do regrid.")
+    p.add_argument("--regrid-cache-subdir", default="cache",
+                   help="Subpasta dentro de --out-nc para salvar pesos do regrid.")
 
     p.add_argument("--originating-centre", default="ecmwf", help="CDS originating_centre (e.g., ecmwf, lfpw)")
     p.add_argument("--system", default="51", help="CDS system id (e.g., 51, 9)")
@@ -81,8 +87,8 @@ def main():
         except Exception:
             out_year = extract_year_from_path(Path(args.out_grib).expanduser().resolve())
 
-    out_grib_root = Path(args.out_grib) / var_folder
-    out_nc_root = Path(args.out_nc) / var_folder
+    out_grib_root = Path(args.out_grib)
+    out_nc_root = Path(args.out_nc)
 
     cfg = HindcastConfig(
         originating_centre=str(args.originating_centre),
@@ -91,6 +97,8 @@ def main():
         input_var=str(args.input_var),
         out_var_name=str(var_folder),
         product_type=product_type,
+        save_regrid_weights=bool(args.save_regrid_weights),
+        regrid_cache_subdir=str(args.regrid_cache_subdir),
     )
 
     pipeline = HindcastPipeline(cfg, out_grib_root, out_nc_root, bool(args.regrid), ref_grid)
