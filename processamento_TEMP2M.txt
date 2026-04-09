@@ -2,7 +2,7 @@ processamento TEMP2M:
 
 ECMWF:
 
-python run_hindcast_t2m.py   --doy-root /home/felipe/daily_correct/2025/ECMWF/2m_air_temperature_min/2024/001   --out-grib /home/felipe/daily_correct/temp/ECMWF_HINDCAST_OUT   --out-nc /home/felipe/daily_correct/temp/ECMWF_HINDCAST_OUT_PROCESSED   --originating-centre ecmwf   --system 51   --model-prefix ecmwf_subseas_glo   --regrid   --ref-grid /home/felipe/daily_correct/climatologia/era5_glo_2m_air_temperature_min_20010101.nc
+python run_hindcast_t2m.py   --doy-root /home/felipe/daily_correct/2025/ECMWF/2m_air_temperature_min/2024/001   --out-grib /home/felipe/daily_correct/temp/ECMWF_HINDCAST_OUT   --out-nc /home/felipe/daily_correct/temp/ECMWF_HINDCAST_OUT_PROCESSED   --originating-centre ecmwf   --system 51   --model-prefix ecmwf_subseas_glo   --regrid   --ref-grid /home/felipe/daily_correct/climatologia/era5_glo_2m_air_temperature_min_20010101.nc --no-save-regrid-weights
 
 Frace:
 
@@ -37,7 +37,7 @@ correção:
 
 ECMWF:
 
-python run_correction_t2m.py   --forecast-root /home/felipe/daily_correct/2025/ECMWF/2m_air_temperature_min/2024/001   --hindcast-root /home/felipe/daily_correct/temp/ECMWF_HINDCAST_OUT_PROCESSED/2m_air_temperature_min/2024   --clim-file /home/felipe/daily_correct/climatologia   --out-root /home/felipe/daily_correct/temp/ECMWF_CORR   --clip-delta-c 1.5
+python run_correction_t2m.py   --forecast-root /home/felipe/daily_correct/2025/ECMWF/2m_air_temperature_min/2024/001   --hindcast-root /home/felipe/daily_correct/temp/ECMWF_HINDCAST_OUT_PROCESSED/2m_air_temperature_min/2024   --clim-file /home/felipe/daily_correct/climatologia   --out-root /home/felipe/daily_correct/temp/ECMWF_CORR   --clip-delta-c 1.5 --no-save-regrid-weights
 
 Frace:
 
