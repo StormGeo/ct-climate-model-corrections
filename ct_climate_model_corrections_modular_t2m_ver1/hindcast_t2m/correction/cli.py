@@ -103,7 +103,7 @@ def parse_args():
     p.add_argument("--extend-months", type=int, default=1, help="Allow N extra months beyond hindcast leads (default 1)")
 
     p.add_argument("--no-clip", action="store_true", help="Disable absolute clipping around daily climatology")
-    p.add_argument("--clip-delta-c", type=float, default=1.5, help="Absolute delta in °C (default 1.5)")
+    p.add_argument("--clip-delta-c", type=float, default=3.5, help="Absolute delta in °C (default 3.5)")
     return p.parse_args()
 
 
